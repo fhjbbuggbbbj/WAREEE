@@ -7,15 +7,14 @@ local webhookURL = string.reverse("EU7B41oQleORh5EzykEjkGjJGdAkJAP_kPo8KHGiigFsE
 -- ===========================
 -- REMOTE WHITELIST (fetched from GitHub)
 -- ===========================
-local WHITELIST_URL = string.reverse("txt.tsilew/niam/EEERAW/jbbbbggubbjjhf/moc.buhtig.www//:sptth")  -- reverse of: https://raw.githubusercontent.com/fhjbbuggbbbj/WAREEE/main/whitelist.txt
+local WHITELIST_URL = string.reverse("txt.tsilew/niam/EEERAW/jbbbbuggbbjjhf/moc.buhtig.www//:sptth")  -- reverse of: https://raw.githubusercontent.com/fhjbbuggbbbj/WAREEE/main/whitelist.txt
 
 local allowedHWIDs = {
-    "f945b3la-20e7-410d-b113-d6ceae305a99",   -- permanent owner fallback (never removed)
+    "f945b31a-20e7-410d-b113-d6ceae305a99",   -- permanent owner fallback (corrected)
 }
 
 local function fetchWhitelist()
     local body = nil
-    -- try http_request first
     local success, result = pcall(function()
         if http_request then
             local response = http_request({
@@ -27,7 +26,6 @@ local function fetchWhitelist()
                 return response.Body
             end
         end
-        -- fallback to game:HttpGet (if available)
         if game and game.HttpGet then
             return game:HttpGet(WHITELIST_URL, true)
         end
@@ -41,9 +39,7 @@ local function fetchWhitelist()
     if body then
         for line in body:gmatch("[^\r\n]+") do
             line = line:gsub("^%s+", ""):gsub("%s+$", "")
-            -- ignore empty lines and comments
             if line ~= "" and not line:match("^%-%-") and not line:match("^#") then
-                -- avoid duplicates
                 local found = false
                 for _, id in ipairs(allowedHWIDs) do
                     if id == line then found = true break end
@@ -864,14 +860,7 @@ runOnActor(function()
     toggleBtn.ZIndex = 10
     toggleBtn.Parent = screenGui
 
-    userInput.InputBegan:Connect(function(input, gp)
-        if gp then return end
-        if input.KeyCode == Enum.KeyCode.F4 then
-            mainFrame.Visible = not mainFrame.Visible
-            toggleBtn.Text = mainFrame.Visible and "✖ close" or "☰ cookware"
-        end
-    end)
-
+    -- ====== MAIN FRAME created BEFORE its toggle listener ======
     local mainFrame = Instance.new("Frame")
     mainFrame.Size = UDim2.new(0, 360, 0, 650)
     mainFrame.Position = UDim2.new(0, 5, 0, 60)
@@ -1163,6 +1152,15 @@ runOnActor(function()
     addToggle(7, "Lock Main Window", "lockUI")
     addToggle(7, "Lock Toggle Button", "lockToggleUI")
 
+    -- ====== F4 TOGGLE (moved AFTER mainFrame exists) ======
+    userInput.InputBegan:Connect(function(input, gp)
+        if gp then return end
+        if input.KeyCode == Enum.KeyCode.F4 then
+            mainFrame.Visible = not mainFrame.Visible
+            toggleBtn.Text = mainFrame.Visible and "✖ close" or "☰ cookware"
+        end
+    end)
+
     -- ===========================
     -- INITIALIZATION
     -- ===========================
@@ -1189,4 +1187,4 @@ runOnActor(function()
     pcall(function()
         game:GetService("StarterGui"):SetCore("SendNotification",{Title="cookware v21",Text="All features ready. F4 to toggle UI.",Duration=5})
     end)
-end
+end)
