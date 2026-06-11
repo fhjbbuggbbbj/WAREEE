@@ -1,0 +1,8 @@
+{
+  "name": "cookware-bot",
+  "version": "1.0.0",
+  "main": "index.js",
+  "dependencies": {
+    "discord.js": "^12.5.3"
+  }
+}
