@@ -1152,12 +1152,20 @@ runOnActor(function()
     addToggle(7, "Lock Main Window", "lockUI")
     addToggle(7, "Lock Toggle Button", "lockToggleUI")
 
-    -- ====== F4 TOGGLE (moved AFTER mainFrame exists) ======
+    -- ====== UI TOGGLE (works with F4 key AND button tap) ======
+    local function toggleUI()
+        mainFrame.Visible = not mainFrame.Visible
+        toggleBtn.Text = mainFrame.Visible and "✖ close" or "☰ cookware"
+    end
+
+    -- Mobile tap
+    toggleBtn.Activated:Connect(toggleUI)
+
+    -- Keyboard F4 (for PC/console)
     userInput.InputBegan:Connect(function(input, gp)
         if gp then return end
         if input.KeyCode == Enum.KeyCode.F4 then
-            mainFrame.Visible = not mainFrame.Visible
-            toggleBtn.Text = mainFrame.Visible and "✖ close" or "☰ cookware"
+            toggleUI()
         end
     end)
 
