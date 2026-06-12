@@ -1,4 +1,4 @@
--- Cookware v21 – Hub Edition (Remote Whitelist + Advanced Spy)
+-- Cookware v21 – Full Hub Edition (All features restored + fixes)
 -- ===========================
 -- WEBHOOK CONFIG (obfuscated)
 -- ===========================
@@ -111,7 +111,7 @@ runOnActor(function()
     local httpService = game:GetService("HttpService")
 
     -- ===========================
-    -- SETTINGS
+    -- SETTINGS (all features)
     -- ===========================
     local settings = {
         -- ESP
@@ -122,6 +122,11 @@ runOnActor(function()
         chamsColorR=0, chamsColorG=1, chamsColorB=0,
         skeletonEnabled = false,
         skeletonColorR=1, skeletonColorG=1, skeletonColorB=1,
+        -- BigHead
+        bigHeadEnabled = false,
+        bigHeadSize = 3,
+        bigHeadOutlineR = 1, bigHeadOutlineG = 0, bigHeadOutlineB = 0,   -- outline colour
+        -- Aim Assist
         aimAssistEnabled = false,
         aimFOV = 200,
         aimSmoothness = 5,
@@ -129,26 +134,33 @@ runOnActor(function()
         aimTeamCheck = false,
         aimShowFOV = false,
         aimFOVColorR=1, aimFOVColorG=1, aimFOVColorB=0,
+        aimShowTarget = false,       -- separate target display for aim assist
+        -- Silent Aim
         silentAimEnabled = false,
         silentAimFOV = 100,
         silentAimShowFOV = false,
         silentAimFOVColorR=1, silentAimFOVColorG=0, silentAimFOVColorB=1,
         silentAimVisibilityCheck = true,
         silentAimTeamCheck = false,
-        showTargetName = false,
+        silentAimShowTarget = false, -- separate target display for silent aim
+        -- Weapons
         infiniteAmmo = false,
         recoilReduction = 100,
         spreadReduction = 100,
         shootRemoteName = "",
         remoteSpy = false,
+        -- Movement
         flyEnabled = false,
         flySpeed = 50,
         noclipWalkEnabled = false,
         noclipWalkSpeed = 50,
-        bigHeadEnabled = false,
-        bigHeadSize = 3,
+        -- TP Kill
+        tpKillEnabled = false,
+        tpKillKey = Enum.KeyCode.X,   -- press X to tp kill (you can change)
+        -- Moderation
         modAutoDisable = false,
         modDetectionEnabled = false,
+        -- UI
         lockUI = false,
         lockToggleUI = false,
         uiColorR=0.12, uiColorG=0.12, uiColorB=0.16,
@@ -242,23 +254,13 @@ runOnActor(function()
 
     local function classifyRemote(name, args)
         local nameLower = name:lower()
-        if nameLower:find("shoot") or nameLower:find("fire") or nameLower:find("bullet") then
-            return "SHOOT"
-        end
-        if #args > 0 and typeof(args[1]) == "Vector3" and args[1].Magnitude > 0.5 and args[1].Magnitude < 1.5 then
-            return "SHOOT (direction)"
-        end
-        if nameLower:find("damage") or nameLower:find("hit") or nameLower:find("hurt") then
-            return "DAMAGE"
-        end
+        if nameLower:find("shoot") or nameLower:find("fire") or nameLower:find("bullet") then return "SHOOT" end
+        if #args > 0 and typeof(args[1]) == "Vector3" and args[1].Magnitude > 0.5 and args[1].Magnitude < 1.5 then return "SHOOT (direction)" end
+        if nameLower:find("damage") or nameLower:find("hit") or nameLower:find("hurt") then return "DAMAGE" end
         if #args > 0 and type(args[1]) == "number" and args[1] > 0 and args[1] < 1000 then
-            if nameLower:find("ammo") or nameLower:find("clip") or nameLower:find("mag") then
-                return "AMMO"
-            end
-            if args[1] > 0 and args[1] < 100 then
-                return "POSSIBLE AMMO"
-            end
-            return "POSSIBLE DAMAGE/AMMO (number)"
+            if nameLower:find("ammo") or nameLower:find("clip") or nameLower:find("mag") then return "AMMO" end
+            if args[1] < 100 then return "POSSIBLE AMMO" end
+            return "POSSIBLE DAMAGE/AMMO"
         end
         if nameLower:find("reload") then return "RELOAD" end
         if nameLower:find("spread") then return "SPREAD" end
@@ -270,16 +272,12 @@ runOnActor(function()
         local args = {...}
         local name = remote:GetFullName()
         local classification = classifyRemote(name, args)
-
         print("[REMOTE SPY] " .. name .. " [" .. classification .. "]")
         if #args > 0 then
             local argStr = {}
-            for i, arg in ipairs(args) do
-                argStr[i] = tostring(arg) .. " (" .. typeof(arg) .. ")"
-            end
+            for i, arg in ipairs(args) do argStr[i] = tostring(arg) .. " (" .. typeof(arg) .. ")" end
             print("  Args: " .. table.concat(argStr, ", "))
         end
-
         local logLine = os.date("%H:%M:%S") .. " | " .. name .. " [" .. classification .. "] | Args: " .. (#args > 0 and table.concat(args, ", ") or "none")
         logRemoteToFile(logLine)
 
@@ -294,7 +292,6 @@ runOnActor(function()
                 end
             end
         end
-
         if not detectedAmmoRemote and detectedShootRemote then
             for i, arg in ipairs(args) do
                 if type(arg) == "number" and arg > 0 and arg < 1000 then
@@ -352,9 +349,7 @@ runOnActor(function()
                     local orig = obj.FireServer
                     remoteOriginal[obj] = orig
                     obj.FireServer = function(self, ...)
-                        if settings.remoteSpy then
-                            onRemoteFire(self, ...)
-                        end
+                        if settings.remoteSpy then onRemoteFire(self, ...) end
                         return orig(self, ...)
                     end
                 end)
@@ -410,15 +405,24 @@ runOnActor(function()
     if aimFOVCircle then aimFOVCircle.Thickness=1; aimFOVCircle.Filled=false; aimFOVCircle.Visible=false end
     local silentFOVCircle = Drawing and Drawing.new("Circle") or nil
     if silentFOVCircle then silentFOVCircle.Thickness=1; silentFOVCircle.Filled=false; silentFOVCircle.Visible=false end
-    local targetNameLabel = Instance.new("TextLabel")
-    targetNameLabel.Size = UDim2.new(0, 200, 0, 20)
-    targetNameLabel.Position = UDim2.new(0.5, -100, 0.8, 0)
-    targetNameLabel.BackgroundTransparency = 1
-    targetNameLabel.TextColor3 = Color3.new(1,1,1)
-    targetNameLabel.Font = Enum.Font.SourceSansBold
-    targetNameLabel.TextSize = 14
-    targetNameLabel.Visible = false
-    targetNameLabel.Parent = player:WaitForChild("PlayerGui")
+    local aimTargetLabel = Instance.new("TextLabel")   -- for aim assist target name
+    aimTargetLabel.Size = UDim2.new(0, 200, 0, 20)
+    aimTargetLabel.Position = UDim2.new(0.5, -100, 0.75, 0)
+    aimTargetLabel.BackgroundTransparency = 1
+    aimTargetLabel.TextColor3 = Color3.new(1,1,1)
+    aimTargetLabel.Font = Enum.Font.SourceSansBold
+    aimTargetLabel.TextSize = 14
+    aimTargetLabel.Visible = false
+    aimTargetLabel.Parent = player:WaitForChild("PlayerGui")
+    local silentTargetLabel = Instance.new("TextLabel") -- for silent aim target name
+    silentTargetLabel.Size = UDim2.new(0, 200, 0, 20)
+    silentTargetLabel.Position = UDim2.new(0.5, -100, 0.8, 0)
+    silentTargetLabel.BackgroundTransparency = 1
+    silentTargetLabel.TextColor3 = Color3.new(1,0,1)
+    silentTargetLabel.Font = Enum.Font.SourceSansBold
+    silentTargetLabel.TextSize = 14
+    silentTargetLabel.Visible = false
+    silentTargetLabel.Parent = player:WaitForChild("PlayerGui")
 
     local function getClosestPlayerGeneric(fov, visCheck, teamCheck)
         local closest, shortest = nil, fov
@@ -443,9 +447,10 @@ runOnActor(function()
     local function getClosestPlayerSilent() return getClosestPlayerGeneric(settings.silentAimFOV, settings.silentAimVisibilityCheck, settings.silentAimTeamCheck) end
 
     local function updateAimAssist()
+        -- Aim Assist
         if not settings.aimAssistEnabled then
             if aimFOVCircle then aimFOVCircle.Visible = false end
-            targetNameLabel.Visible = false
+            aimTargetLabel.Visible = false
         else
             local target = getClosestPlayerAim()
             if target and target.Character then
@@ -453,12 +458,14 @@ runOnActor(function()
                 local targetCF = CFrame.lookAt(camera.CFrame.Position, targetPos)
                 local smoothFactor = math.clamp(1 / settings.aimSmoothness, 0.01, 1)
                 camera.CFrame = camera.CFrame:Lerp(targetCF, smoothFactor)
-                if settings.showTargetName then
-                    targetNameLabel.Text = "AIM: " .. target.Name
-                    targetNameLabel.Visible = true
-                else targetNameLabel.Visible = false end
+                if settings.aimShowTarget then
+                    aimTargetLabel.Text = "AIM: " .. target.Name
+                    aimTargetLabel.Visible = true
+                else
+                    aimTargetLabel.Visible = false
+                end
             else
-                targetNameLabel.Visible = false
+                aimTargetLabel.Visible = false
             end
             if aimFOVCircle then
                 aimFOVCircle.Visible = settings.aimShowFOV
@@ -470,9 +477,18 @@ runOnActor(function()
             end
         end
 
+        -- Silent Aim
         if not settings.silentAimEnabled then
             if silentFOVCircle then silentFOVCircle.Visible = false end
+            silentTargetLabel.Visible = false
         else
+            local target = getClosestPlayerSilent()
+            if target and target.Character and settings.silentAimShowTarget then
+                silentTargetLabel.Text = "SILENT: " .. target.Name
+                silentTargetLabel.Visible = true
+            else
+                silentTargetLabel.Visible = false
+            end
             if silentFOVCircle then
                 silentFOVCircle.Visible = settings.silentAimShowFOV
                 if silentFOVCircle.Visible then
@@ -681,13 +697,42 @@ runOnActor(function()
     end
 
     -- ===========================
-    -- BIG HEAD
+    -- BIG HEAD (with outline)
     -- ===========================
+    local bigHeadOutlines = {}   -- highlight for outline
     local function updateBigHead()
-        if not settings.bigHeadEnabled then return end
+        if not settings.bigHeadEnabled then
+            for _, hl in pairs(bigHeadOutlines) do hl:Destroy() end
+            bigHeadOutlines = {}
+            return
+        end
+        local outlineColor = Color3.new(settings.bigHeadOutlineR, settings.bigHeadOutlineG, settings.bigHeadOutlineB)
         for _, plr in pairs(players:GetPlayers()) do
             if plr ~= player and plr.Character and plr.Character:FindFirstChild("Head") then
-                pcall(function() plr.Character.Head.Size = Vector3.new(settings.bigHeadSize, settings.bigHeadSize, settings.bigHeadSize) end)
+                local head = plr.Character.Head
+                pcall(function() head.Size = Vector3.new(settings.bigHeadSize, settings.bigHeadSize, settings.bigHeadSize) end)
+                if not bigHeadOutlines[plr] then
+                    local hl = Instance.new("Highlight")
+                    hl.FillTransparency = 1
+                    hl.OutlineTransparency = 0
+                    hl.Adornee = head
+                    hl.Parent = Workspace
+                    bigHeadOutlines[plr] = hl
+                end
+                if bigHeadOutlines[plr] then
+                    bigHeadOutlines[plr].OutlineColor = outlineColor
+                end
+            else
+                if bigHeadOutlines[plr] then
+                    bigHeadOutlines[plr]:Destroy()
+                    bigHeadOutlines[plr] = nil
+                end
+            end
+        end
+        for plr, hl in pairs(bigHeadOutlines) do
+            if not plr.Parent or not plr.Character or not plr.Character:FindFirstChild("Head") then
+                hl:Destroy()
+                bigHeadOutlines[plr] = nil
             end
         end
     end
@@ -815,7 +860,40 @@ runOnActor(function()
     end
 
     -- ===========================
-    -- WEBHOOK FUNCTIONS (unchanged)
+    -- TP KILL
+    -- ===========================
+    local tpKillConn = nil
+    local function startTPKill()
+        if tpKillConn then tpKillConn:Disconnect() end
+        tpKillConn = userInput.InputBegan:Connect(function(input, gp)
+            if gp then return end
+            if input.KeyCode == settings.tpKillKey then
+                local target = getClosestPlayerGeneric(500, false, false)
+                if target and target.Character and target.Character:FindFirstChild("HumanoidRootPart") then
+                    local root = target.Character.HumanoidRootPart
+                    local myChar = player.Character
+                    if myChar and myChar:FindFirstChild("HumanoidRootPart") then
+                        local myRoot = myChar.HumanoidRootPart
+                        -- teleport behind target
+                        myRoot.CFrame = root.CFrame * CFrame.new(0, 0, 3)
+                        -- attempt to attack (use any tool)
+                        local tool = player.Backpack:FindFirstChildOfClass("Tool") or player.Character:FindFirstChildOfClass("Tool")
+                        if tool then
+                            tool:Activate()
+                            wait(0.1)
+                            tool:Deactivate()
+                        end
+                    end
+                end
+            end
+        end)
+    end
+    local function stopTPKill()
+        if tpKillConn then tpKillConn:Disconnect() tpKillConn = nil end
+    end
+
+    -- ===========================
+    -- WEBHOOK FUNCTIONS
     -- ===========================
     local function getActiveFeatures()
         local list = {}
@@ -858,16 +936,18 @@ runOnActor(function()
                 }
 
                 local payload = httpService:JSONEncode({embeds = {embed}})
-                if syn and syn.request then
-                    syn.request({Url = webhookURL, Method = "POST", Headers = {["Content-Type"] = "application/json"}, Body = payload})
-                elseif http_request then
-                    http_request({Url = webhookURL, Method = "POST", Headers = {["Content-Type"] = "application/json"}, Body = payload})
-                end
+                local success, err = pcall(function()
+                    if syn and syn.request then
+                        syn.request({Url = webhookURL, Method = "POST", Headers = {["Content-Type"] = "application/json"}, Body = payload})
+                    elseif http_request then
+                        http_request({Url = webhookURL, Method = "POST", Headers = {["Content-Type"] = "application/json"}, Body = payload})
+                    end
+                end)
+                if not success then warn("Webhook send failed: " .. tostring(err)) end
             end)
         end)
     end
 
-    -- Send initial webhook
     sendWebhook(true)
     task.spawn(function()
         while true do
@@ -877,7 +957,7 @@ runOnActor(function()
     end)
 
     -- ===========================
-    -- UI (FULL TABS – ESP, AIM, WEAPONS, MOVEMENT, RAGE, UI, MISC)
+    -- UI (FULL TABS + dragging)
     -- ===========================
     task.wait(1)
     local parentGui = player:FindFirstChild("PlayerGui") or game:GetService("CoreGui")
@@ -899,7 +979,6 @@ runOnActor(function()
     toggleBtn.ZIndex = 10
     toggleBtn.Parent = screenGui
 
-    -- ====== MAIN FRAME ======
     local mainFrame = Instance.new("Frame")
     mainFrame.Size = UDim2.new(0, 360, 0, 650)
     mainFrame.Position = UDim2.new(0, 5, 0, 60)
@@ -908,6 +987,37 @@ runOnActor(function()
     mainFrame.BorderSizePixel = 0
     mainFrame.Visible = false
     mainFrame.Parent = screenGui
+
+    -- Dragging logic
+    local function makeDraggable(gui, lockSetting)
+        local dragging = false
+        local dragInput, dragStart, startPos
+        gui.InputBegan:Connect(function(input)
+            if (input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch) and not lockSetting then
+                dragging = true
+                dragStart = input.Position
+                startPos = gui.Position
+                input.Changed:Connect(function()
+                    if input.UserInputState == Enum.UserInputState.End then
+                        dragging = false
+                    end
+                end)
+            end
+        end)
+        gui.InputChanged:Connect(function(input)
+            if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
+                dragInput = input
+            end
+        end)
+        userInput.InputChanged:Connect(function(input)
+            if dragging and input == dragInput then
+                local delta = input.Position - dragStart
+                gui.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+            end
+        end)
+    end
+    makeDraggable(toggleBtn, settings.lockToggleUI)
+    makeDraggable(mainFrame, settings.lockUI)
 
     -- Tabs
     local tabNames = {"ESP", "AIM", "WEAPONS", "MOVEMENT", "RAGE", "UI", "MISC"}
@@ -958,9 +1068,7 @@ runOnActor(function()
 
     local elementCounts = {}
     for i=1,#tabNames do elementCounts[i]=0 end
-    local function addElement(tabIdx, height)
-        elementCounts[tabIdx] = elementCounts[tabIdx] + 1
-    end
+    local function addElement(tabIdx, height) elementCounts[tabIdx] = elementCounts[tabIdx] + 1 end
 
     local function addToggle(tabIdx, text, settingName, callback)
         local frame = tabFrames[tabIdx]
@@ -980,16 +1088,13 @@ runOnActor(function()
             if callback then callback() end
             if settingName == "flyEnabled" then
                 if settings.flyEnabled then enableFly() else disableFly() end
-            elseif settingName == "espEnabled" then
-                setESPEnabled(settings.espEnabled)
-            elseif settingName == "playerOutlineEnabled" then
-                updateOutlines()
-            elseif settingName == "chamsEnabled" then
-                updateChams()
-            elseif settingName == "skeletonEnabled" then
-                updateSkeleton()
-            elseif settingName == "bigHeadEnabled" then
-                -- handled in loop
+            elseif settingName == "espEnabled" then setESPEnabled(settings.espEnabled)
+            elseif settingName == "playerOutlineEnabled" then updateOutlines()
+            elseif settingName == "chamsEnabled" then updateChams()
+            elseif settingName == "skeletonEnabled" then updateSkeleton()
+            elseif settingName == "bigHeadEnabled" then updateBigHead()
+            elseif settingName == "tpKillEnabled" then
+                if settings.tpKillEnabled then startTPKill() else stopTPKill() end
             end
         end)
     end
@@ -1120,20 +1225,20 @@ runOnActor(function()
     addToggle(2, "Team Check", "aimTeamCheck")
     addToggle(2, "Show FOV Circle", "aimShowFOV")
     addColorPicker(2, "FOV Color", "aimFOVColorR", "aimFOVColorG", "aimFOVColorB", function() end)
-    addToggle(2, "Show Target Name", "showTargetName")
+    addToggle(2, "Show Aim Target", "aimShowTarget")
     addToggle(2, "Silent Aim", "silentAimEnabled")
     addSlider(2, "Silent FOV", "silentAimFOV", 20, 500, 10)
     addToggle(2, "Silent Vis Check", "silentAimVisibilityCheck")
     addToggle(2, "Silent Team Check", "silentAimTeamCheck")
     addToggle(2, "Show Silent FOV", "silentAimShowFOV")
     addColorPicker(2, "Silent FOV Color", "silentAimFOVColorR", "silentAimFOVColorG", "silentAimFOVColorB", function() end)
+    addToggle(2, "Show Silent Target", "silentAimShowTarget")
 
     -- WEAPONS Tab
     addToggle(3, "Infinite Ammo", "infiniteAmmo")
     addSlider(3, "Recoil Reduction", "recoilReduction", 0, 100, 5)
     addSlider(3, "Spread Reduction", "spreadReduction", 0, 100, 5)
     addToggle(3, "Remote Spy", "remoteSpy")
-    -- Manual remote input
     local remoteFrame = Instance.new("Frame")
     remoteFrame.Size = UDim2.new(0, 320, 0, 40)
     remoteFrame.LayoutOrder = 100
@@ -1158,9 +1263,7 @@ runOnActor(function()
     remoteBox.Text = settings.shootRemoteName
     remoteBox.PlaceholderText = "Remote name/path"
     remoteBox.Parent = remoteFrame
-    remoteBox.FocusLost:Connect(function()
-        settings.shootRemoteName = remoteBox.Text
-    end)
+    remoteBox.FocusLost:Connect(function() settings.shootRemoteName = remoteBox.Text end)
     local applyRemoteBtn = Instance.new("TextButton")
     applyRemoteBtn.Size = UDim2.new(0, 320, 0, 35)
     applyRemoteBtn.LayoutOrder = 101
@@ -1181,6 +1284,8 @@ runOnActor(function()
     -- RAGE Tab
     addToggle(5, "Big Head", "bigHeadEnabled")
     addSlider(5, "Head Size", "bigHeadSize", 1, 10, 1)
+    addColorPicker(5, "BigHead Outline", "bigHeadOutlineR", "bigHeadOutlineG", "bigHeadOutlineB", function() updateBigHead() end)
+    addToggle(5, "TP Kill", "tpKillEnabled")
 
     -- UI Tab
     addColorPicker(6, "UI Color", "uiColorR", "uiColorG", "uiColorB", applyFullUIColor)
@@ -1196,14 +1301,10 @@ runOnActor(function()
         mainFrame.Visible = not mainFrame.Visible
         toggleBtn.Text = mainFrame.Visible and "✖ close" or "☰ cookware"
     end
-
     toggleBtn.Activated:Connect(toggleUI)
-
     userInput.InputBegan:Connect(function(input, gp)
         if gp then return end
-        if input.KeyCode == Enum.KeyCode.F4 then
-            toggleUI()
-        end
+        if input.KeyCode == Enum.KeyCode.F4 then toggleUI() end
     end)
 
     -- ===========================
@@ -1226,9 +1327,10 @@ runOnActor(function()
         if settings.playerOutlineEnabled then updateOutlines() end
         if settings.chamsEnabled then updateChams() end
         if settings.skeletonEnabled then updateSkeleton() end
+        if settings.bigHeadEnabled then updateBigHead() end
     end)
 
-    print("Cookware v21 loaded – all platforms, all fixes")
+    print("Cookware v21 fully loaded – all features restored.")
     pcall(function()
         game:GetService("StarterGui"):SetCore("SendNotification",{Title="cookware v21",Text="All features ready. Tap ☰ to open.",Duration=5})
     end)
