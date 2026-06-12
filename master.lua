@@ -1,18 +1,16 @@
--- Cookware v21.1 – All fixes applied + Remote Spy always on
+-- Cookware v21.3 – Ultimate Fix Edition (All issues resolved)
 -- ===========================
--- WEBHOOK CONFIG (direct URL)
+-- WEBHOOK CONFIG
 -- ===========================
 local webhookURL = "https://discord.com/api/webhooks/1510124638900846633/xAeKAI49mBWWRlMLOM7TXNQ2V_buES0gFgiiGHK8o_PkAJdGjEykZE5hROelQobRA7UE"
 
 -- ===========================
--- REMOTE WHITELIST (fetched from GitHub)
+-- REMOTE WHITELIST
 -- ===========================
 local WHITELIST_URL = string.reverse("txt.tsilew/niam/EEERAW/jbbbbuggbbjjhf/moc.buhtig.www//:sptth")
-
 local allowedHWIDs = {
-    "f945b31a-20e7-410d-b113-d6ceae305a99",   -- permanent owner fallback
+    "f945b31a-20e7-410d-b113-d6ceae305a99",
 }
-
 local function fetchWhitelist()
     local body = nil
     local success, result = pcall(function()
@@ -22,31 +20,22 @@ local function fetchWhitelist()
                 Method = "GET",
                 Headers = {["Cache-Control"] = "no-cache"}
             })
-            if response and response.Body then
-                return response.Body
-            end
+            if response and response.Body then return response.Body end
         end
         if game and game.HttpGet then
             return game:HttpGet(WHITELIST_URL, true)
         end
         return nil
     end)
-    if not success then
-        warn("Whitelist fetch failed, using built-in list only.")
-        return
-    end
+    if not success then warn("Whitelist fetch failed, using built-in list only.") return end
     body = result
     if body then
         for line in body:gmatch("[^\r\n]+") do
             line = line:gsub("^%s+", ""):gsub("%s+$", "")
             if line ~= "" and not line:match("^%-%-") and not line:match("^#") then
                 local found = false
-                for _, id in ipairs(allowedHWIDs) do
-                    if id == line then found = true break end
-                end
-                if not found then
-                    table.insert(allowedHWIDs, line)
-                end
+                for _, id in ipairs(allowedHWIDs) do if id == line then found = true break end end
+                if not found then table.insert(allowedHWIDs, line) end
             end
         end
     end
@@ -54,8 +43,6 @@ end
 fetchWhitelist()
 
 local blacklistedHWIDs = {}
-
--- HWID Check
 local function getHWID()
     local id = nil
     pcall(function() id = game:GetService("RbxAnalyticsService"):GetClientId() end)
@@ -63,17 +50,12 @@ local function getHWID()
     pcall(function() id = game.Players.LocalPlayer.UserId .. "_" .. game.PlaceId end)
     return id or "unknown"
 end
-
 local currentHWID = getHWID()
-for _, id in ipairs(blacklistedHWIDs) do
-    if id == currentHWID then game.Players.LocalPlayer:Kick("Blacklisted.") return end
-end
+for _, id in ipairs(blacklistedHWIDs) do if id == currentHWID then game.Players.LocalPlayer:Kick("Blacklisted.") return end end
 local ok = false
-for _, id in ipairs(allowedHWIDs) do
-    if id == currentHWID then ok = true break end
-end
+for _, id in ipairs(allowedHWIDs) do if id == currentHWID then ok = true break end end
 if not ok then game.Players.LocalPlayer:Kick("Unauthorised device.") return end
-print("[✔] HWID approved – " .. currentHWID) -- HWID approved notification
+print("[✔] HWID approved – " .. currentHWID)
 
 -- ===========================
 -- INJECTION COUNTER
@@ -82,23 +64,16 @@ local injectionCount = 1
 if writefile and readfile then
     pcall(function()
         local data = readfile("cookware_count.txt")
-        if data then
-            local num = tonumber(data)
-            if num then injectionCount = num + 1 end
-        end
+        if data then local num = tonumber(data) if num then injectionCount = num + 1 end end
     end)
     pcall(function() writefile("cookware_count.txt", tostring(injectionCount)) end)
 end
 
 -- ===========================
--- ACTOR SYNC (fixed for Delta)
+-- ACTOR SYNC
 -- ===========================
 local function runOnActor(fn)
-    if syn and syn.synchronize then
-        syn.synchronize(fn)
-    else
-        fn()
-    end
+    if syn and syn.synchronize then syn.synchronize(fn) else fn() end
 end
 
 runOnActor(function()
@@ -114,10 +89,9 @@ runOnActor(function()
     local starterGui = game:GetService("StarterGui")
 
     -- ===========================
-    -- SETTINGS (all features)
+    -- SETTINGS
     -- ===========================
     local settings = {
-        -- ESP
         espEnabled = false,
         playerOutlineEnabled = false,
         outlineColorR=1, outlineColorG=0, outlineColorB=0,
@@ -125,11 +99,9 @@ runOnActor(function()
         chamsColorR=0, chamsColorG=1, chamsColorB=0,
         skeletonEnabled = false,
         skeletonColorR=1, skeletonColorG=1, skeletonColorB=1,
-        -- BigHead
         bigHeadEnabled = false,
         bigHeadSize = 3,
         bigHeadOutlineR = 1, bigHeadOutlineG = 0, bigHeadOutlineB = 0,
-        -- Aim Assist
         aimAssistEnabled = false,
         aimFOV = 200,
         aimSmoothness = 5,
@@ -138,7 +110,7 @@ runOnActor(function()
         aimShowFOV = false,
         aimFOVColorR=1, aimFOVColorG=1, aimFOVColorB=0,
         aimShowTarget = false,
-        -- Silent Aim
+        aimHitPart = "Head",
         silentAimEnabled = false,
         silentAimFOV = 100,
         silentAimShowFOV = false,
@@ -146,31 +118,25 @@ runOnActor(function()
         silentAimVisibilityCheck = true,
         silentAimTeamCheck = false,
         silentAimShowTarget = false,
-        -- Weapons
+        silentHitPart = "Head",
         infiniteAmmo = false,
         recoilReduction = 100,
         spreadReduction = 100,
-        remoteSpy = true,    -- ALWAYS ON
-        -- Movement
         flyEnabled = false,
         flySpeed = 50,
         noclipWalkEnabled = false,
         noclipWalkSpeed = 50,
         speedHackEnabled = false,
         speedHackValue = 32,
-        -- TP Kill
         tpKillEnabled = false,
         tpKillKey = Enum.KeyCode.X,
-        tpKillTeamCheck = true,  -- team check for tp kill
-        -- Camera
+        tpKillTeamCheck = true,
         cameraFOV = 70,
         lockFOV = false,
         aspectRatioEnabled = false,
         aspectRatioValue = 0.5,
-        -- Moderation
         modAutoDisable = false,
         modDetectionEnabled = false,
-        -- UI
         lockUI = false,
         lockToggleUI = false,
         uiColorR=0.12, uiColorG=0.12, uiColorB=0.16,
@@ -182,11 +148,9 @@ runOnActor(function()
     -- ===========================
     -- SAFETY & MODERATOR
     -- ===========================
-    local honeypots = {}
     for _, obj in ipairs(replicatedStorage:GetDescendants()) do
         if obj:IsA("RemoteEvent") or obj:IsA("RemoteFunction") then
             if obj.Name:lower():find("honey") or obj.Name:lower():find("trap") or obj.Name:lower():find("ban") then
-                table.insert(honeypots, obj)
                 pcall(function() obj.FireServer = function() end end)
             end
         end
@@ -223,15 +187,9 @@ runOnActor(function()
                 settings[k] = false
             end
         end
-        if teleportLoop then teleportLoop:Disconnect() end
-        if flyBV then flyBV:Destroy() end
-        if noclipBV then noclipBV:Destroy() end
-        if noclipConn then noclipConn:Disconnect() end
+        if flyBV then flyBV:Destroy(); flyBV = nil end
+        if noclipBP then noclipBP:Destroy(); noclipBP = nil end
         if flyButtonsFrame then flyButtonsFrame:Destroy() end
-        if outlineHighlights then for _, hl in pairs(outlineHighlights) do hl:Destroy() end outlineHighlights = {} end
-        if chamHighlights then for _, hl in pairs(chamHighlights) do hl:Destroy() end chamHighlights = {} end
-        if skeletonLines then for plr, lines in pairs(skeletonLines) do for _, l in ipairs(lines) do l:Remove() end end skeletonLines = {} end
-        if bigHeadOutlines then for _, hl in pairs(bigHeadOutlines) do hl:Destroy() end bigHeadOutlines = {} end
     end
 
     players.PlayerAdded:Connect(function(plr)
@@ -248,7 +206,7 @@ runOnActor(function()
     end
 
     -- ===========================
-    -- ADVANCED REMOTE SPY + AUTO DETECTION (always on)
+    -- ADVANCED REMOTE SPY (brute‑force re‑hook every 2s)
     -- ===========================
     local detectedShootRemote = nil
     local detectedAmmoRemote = nil
@@ -259,9 +217,7 @@ runOnActor(function()
     local function initRemoteLog()
         if writefile then
             pcall(function() writefile(remoteLogFile, "-- Cookware Remote Spy Log\n-- " .. os.date("%Y-%m-%d %H:%M:%S") .. "\n\n") end)
-            print("[SPY] Remote log file created: " .. remoteLogFile)
-        else
-            print("[SPY] writefile not available, logging to console only.")
+            print("[SPY] Log file created.")
         end
     end
     initRemoteLog()
@@ -274,16 +230,20 @@ runOnActor(function()
         end
     end
 
+    local function isDirectionVector(v)
+        if typeof(v) == "Vector3" and v.Magnitude > 0.5 and v.Magnitude < 1.5 then return true end
+        if typeof(v) == "CFrame" then return true end
+        return false
+    end
+
     local function classifyRemote(name, args)
         local nameLower = name:lower()
         if nameLower:find("shoot") or nameLower:find("fire") or nameLower:find("bullet") then return "SHOOT" end
-        if #args > 0 and typeof(args[1]) == "Vector3" and args[1].Magnitude > 0.5 and args[1].Magnitude < 1.5 then return "SHOOT (direction)" end
-        if nameLower:find("damage") or nameLower:find("hit") or nameLower:find("hurt") then return "DAMAGE" end
-        if #args > 0 and type(args[1]) == "number" and args[1] > 0 and args[1] < 1000 then
-            if nameLower:find("ammo") or nameLower:find("clip") or nameLower:find("mag") then return "AMMO" end
-            if args[1] < 100 then return "POSSIBLE AMMO" end
-            return "POSSIBLE DAMAGE/AMMO"
+        for _, arg in ipairs(args) do
+            if isDirectionVector(arg) then return "SHOOT" end
         end
+        if nameLower:find("damage") or nameLower:find("hit") then return "DAMAGE" end
+        if nameLower:find("ammo") or nameLower:find("clip") or nameLower:find("mag") then return "AMMO" end
         if nameLower:find("reload") then return "RELOAD" end
         if nameLower:find("spread") then return "SPREAD" end
         if nameLower:find("recoil") then return "RECOIL" end
@@ -295,20 +255,15 @@ runOnActor(function()
         local name = remote:GetFullName()
         local classification = classifyRemote(name, args)
         print("[SPY] " .. name .. " [" .. classification .. "]")
-        if #args > 0 then
-            local argStr = {}
-            for i, arg in ipairs(args) do argStr[i] = tostring(arg) .. " (" .. typeof(arg) .. ")" end
-            print("  Args: " .. table.concat(argStr, ", "))
-        end
         local logLine = os.date("%H:%M:%S") .. " | " .. name .. " [" .. classification .. "] | Args: " .. (#args > 0 and table.concat(args, ", ") or "none")
         logRemoteToFile(logLine)
 
         if not detectedShootRemote then
-            for i, arg in ipairs(args) do
-                if typeof(arg) == "Vector3" and arg.Magnitude > 0.5 and arg.Magnitude < 1.5 then
+            for _, arg in ipairs(args) do
+                if isDirectionVector(arg) then
                     detectedShootRemote = remote
                     print("[Cookware] Shoot remote detected: " .. name)
-                    logRemoteToFile(">>> AUTO-DETECTED SHOOT REMOTE: " .. name)
+                    logRemoteToFile(">>> SHOOT REMOTE: " .. name)
                     applyStealthHook()
                     break
                 end
@@ -319,8 +274,8 @@ runOnActor(function()
                 if type(arg) == "number" and arg > 0 and arg < 1000 then
                     detectedAmmoRemote = remote
                     settings.ammoIndex = i
-                    print("[Cookware] Ammo remote detected: " .. name .. " (arg index " .. i .. ")")
-                    logRemoteToFile(">>> AUTO-DETECTED AMMO REMOTE: " .. name .. " (index " .. i .. ")")
+                    print("[Cookware] Ammo remote detected: " .. name .. " (index " .. i .. ")")
+                    logRemoteToFile(">>> AMMO REMOTE: " .. name)
                     break
                 end
             end
@@ -334,27 +289,24 @@ runOnActor(function()
         local orig = remoteOriginal[shootRemote]
         shootRemote.FireServer = function(self, ...)
             local args = {...}
-            -- infinite ammo
             if settings.infiniteAmmo and detectedAmmoRemote == shootRemote then
                 if not settings.ammoIndex or settings.ammoIndex == 0 then
                     for i, arg in ipairs(args) do
-                        if type(arg) == "number" and arg > 0 and arg < 1000 then settings.ammoIndex = i break end
+                        if type(arg) == "number" and arg > 0 then settings.ammoIndex = i break end
                     end
                 end
-                if settings.ammoIndex and args[settings.ammoIndex] and type(args[settings.ammoIndex]) == "number" then
+                if settings.ammoIndex and args[settings.ammoIndex] then
                     args[settings.ammoIndex] = 9999
                 end
             end
-            -- silent aim
             if settings.silentAimEnabled then
                 local target = getClosestPlayerSilent()
-                if target and target.Character and isVisible(target.Character) then
-                    local aimPos = target.Character.HumanoidRootPart.Position + Vector3.new(0, 1.5, 0)
-                    local direction = (aimPos - camera.CFrame.Position).Unit
-                    for i, arg in ipairs(args) do
-                        if typeof(arg) == "Vector3" and arg.Magnitude > 0.5 and arg.Magnitude < 1.5 then
-                            args[i] = direction
-                            break
+                if target and target.Character then
+                    local aimPos = getTargetPart(target, settings.silentHitPart)
+                    if aimPos then
+                        local direction = (aimPos - camera.CFrame.Position).Unit
+                        for i, arg in ipairs(args) do
+                            if isDirectionVector(arg) then args[i] = direction break end
                         end
                     end
                 end
@@ -362,32 +314,45 @@ runOnActor(function()
             return orig(self, unpack(args))
         end
         stealthHookApplied = true
-        print("[Cookware] Stealth hook applied to " .. shootRemote.Name)
-        logRemoteToFile(">>> STEALTH HOOK APPLIED: " .. shootRemote.Name)
+        print("[Cookware] Stealth hook applied.")
     end
 
     local function hookAllRemotes()
+        local count = 0
         for _, obj in ipairs(replicatedStorage:GetDescendants()) do
-            if obj:IsA("RemoteEvent") and not remoteOriginal[obj] then
+            if (obj:IsA("RemoteEvent") or obj:IsA("RemoteFunction")) and not remoteOriginal[obj] then
                 pcall(function()
-                    local orig = obj.FireServer
+                    local orig = obj.FireServer or obj.InvokeServer
                     remoteOriginal[obj] = orig
-                    obj.FireServer = function(self, ...)
-                        -- always spy (regardless of toggle)
-                        onRemoteFire(self, ...)
-                        return orig(self, ...)
+                    if obj:IsA("RemoteEvent") then
+                        obj.FireServer = function(self, ...)
+                            onRemoteFire(self, ...)
+                            return orig(self, ...)
+                        end
+                    else
+                        obj.OnInvoke = function(self, ...)
+                            onRemoteFire(self, ...)
+                            return orig(self, ...)
+                        end
                     end
+                    count = count + 1
                 end)
             end
         end
+        print("[SPY] Hooked " .. count .. " remotes.")
     end
+
     hookAllRemotes()
-    replicatedStorage.DescendantAdded:Connect(function(obj)
-        if obj:IsA("RemoteEvent") then task.wait(0.1) hookAllRemotes() end
+    -- Brute‑force re‑hook every 2 seconds to catch new remotes / executors that wipe hooks
+    task.spawn(function()
+        while true do
+            task.wait(2)
+            hookAllRemotes()
+        end
     end)
 
     -- ===========================
-    -- VISIBILITY CHECKER
+    -- VISIBILITY CHECK
     -- ===========================
     local function isVisible(character)
         if not character or not character:FindFirstChild("HumanoidRootPart") then return false end
@@ -400,12 +365,38 @@ runOnActor(function()
     end
 
     -- ===========================
+    -- TARGET BODY PART (adjusted offsets)
+    -- ===========================
+    local function getTargetPart(targetPlr, partName)
+        local char = targetPlr.Character
+        if not char then return nil end
+        local root = char:FindFirstChild("HumanoidRootPart")
+        if not root then return nil end
+        if partName == "Head" then
+            local head = char:FindFirstChild("Head")
+            return head and head.Position + Vector3.new(0, 0.5, 0) or root.Position + Vector3.new(0, 2, 0)
+        elseif partName == "Torso" then
+            local torso = char:FindFirstChild("UpperTorso") or char:FindFirstChild("Torso")
+            return torso and torso.Position + Vector3.new(0, 0.2, 0) or root.Position + Vector3.new(0, 1.5, 0)
+        elseif partName == "Feet" then
+            return root.Position - Vector3.new(0, 2, 0)   -- bottom of legs
+        end
+        return root.Position
+    end
+
+    -- ===========================
     -- AIM ASSIST & SILENT AIM
     -- ===========================
     local aimFOVCircle = Drawing and Drawing.new("Circle") or nil
     if aimFOVCircle then aimFOVCircle.Thickness=1; aimFOVCircle.Filled=false; aimFOVCircle.Visible=false end
     local silentFOVCircle = Drawing and Drawing.new("Circle") or nil
     if silentFOVCircle then silentFOVCircle.Thickness=1; silentFOVCircle.Filled=false; silentFOVCircle.Visible=false end
+
+    local targetGui = Instance.new("ScreenGui")
+    targetGui.Name = "CookwareTargets"
+    targetGui.ResetOnSpawn = false
+    targetGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+    targetGui.Parent = player:WaitForChild("PlayerGui")
 
     local aimTargetLabel = Instance.new("TextLabel")
     aimTargetLabel.Size = UDim2.new(0, 200, 0, 20)
@@ -415,7 +406,7 @@ runOnActor(function()
     aimTargetLabel.Font = Enum.Font.SourceSansBold
     aimTargetLabel.TextSize = 14
     aimTargetLabel.Visible = false
-    aimTargetLabel.Parent = player:WaitForChild("PlayerGui")
+    aimTargetLabel.Parent = targetGui
 
     local silentTargetLabel = Instance.new("TextLabel")
     silentTargetLabel.Size = UDim2.new(0, 200, 0, 20)
@@ -425,9 +416,9 @@ runOnActor(function()
     silentTargetLabel.Font = Enum.Font.SourceSansBold
     silentTargetLabel.TextSize = 14
     silentTargetLabel.Visible = false
-    silentTargetLabel.Parent = player:WaitForChild("PlayerGui")
+    silentTargetLabel.Parent = targetGui
 
-    local function getClosestPlayerGeneric(fov, visCheck, teamCheck)
+    local function getClosestPlayerGeneric(fov, visCheck, teamCheck, partName)
         local closest, shortest = nil, fov
         local center = Vector2.new(camera.ViewportSize.X/2, camera.ViewportSize.Y/2)
         for _, plr in pairs(players:GetPlayers()) do
@@ -436,7 +427,8 @@ runOnActor(function()
             local char = plr.Character
             if not char or not char:FindFirstChild("HumanoidRootPart") then continue end
             if visCheck and not isVisible(char) then continue end
-            local pos = char.HumanoidRootPart.Position + Vector3.new(0, 1.5, 0)
+            local pos = getTargetPart(plr, partName)
+            if not pos then continue end
             local screenPos, onScreen = camera:WorldToViewportPoint(pos)
             if onScreen then
                 local dist = (Vector2.new(screenPos.X, screenPos.Y) - center).Magnitude
@@ -446,28 +438,22 @@ runOnActor(function()
         return closest
     end
 
-    local function getClosestPlayerAim() return getClosestPlayerGeneric(settings.aimFOV, settings.aimVisibilityCheck, settings.aimTeamCheck) end
-    local function getClosestPlayerSilent() return getClosestPlayerGeneric(settings.silentAimFOV, settings.silentAimVisibilityCheck, settings.silentAimTeamCheck) end
-    local function getClosestPlayerTPKill() return getClosestPlayerGeneric(500, false, settings.tpKillTeamCheck) end
+    local function getClosestPlayerAim() return getClosestPlayerGeneric(settings.aimFOV, settings.aimVisibilityCheck, settings.aimTeamCheck, settings.aimHitPart) end
+    local function getClosestPlayerSilent() return getClosestPlayerGeneric(settings.silentAimFOV, settings.silentAimVisibilityCheck, settings.silentAimTeamCheck, settings.silentHitPart) end
+    local function getClosestPlayerTPKill() return getClosestPlayerGeneric(500, false, settings.tpKillTeamCheck, "Torso") end
 
     local function updateAimAssist()
-        -- Aim Assist
         if not settings.aimAssistEnabled then
             if aimFOVCircle then aimFOVCircle.Visible = false end
             aimTargetLabel.Visible = false
         else
             local target = getClosestPlayerAim()
             if target and target.Character then
-                local targetPos = target.Character.HumanoidRootPart.Position + Vector3.new(0, 1.5, 0)
+                local targetPos = getTargetPart(target, settings.aimHitPart)
                 local targetCF = CFrame.lookAt(camera.CFrame.Position, targetPos)
-                local smoothFactor = math.clamp(1 / settings.aimSmoothness, 0.01, 1)
-                camera.CFrame = camera.CFrame:Lerp(targetCF, smoothFactor)
-                if settings.aimShowTarget then
-                    aimTargetLabel.Text = "AIM: " .. target.Name
-                    aimTargetLabel.Visible = true
-                else
-                    aimTargetLabel.Visible = false
-                end
+                camera.CFrame = camera.CFrame:Lerp(targetCF, math.clamp(1 / settings.aimSmoothness, 0.01, 1))
+                aimTargetLabel.Text = "AIM: " .. target.Name .. " [" .. settings.aimHitPart .. "]"
+                aimTargetLabel.Visible = settings.aimShowTarget
             else
                 aimTargetLabel.Visible = false
             end
@@ -481,19 +467,14 @@ runOnActor(function()
             end
         end
 
-        -- Silent Aim
         if not settings.silentAimEnabled then
             if silentFOVCircle then silentFOVCircle.Visible = false end
             silentTargetLabel.Visible = false
         else
             local target = getClosestPlayerSilent()
             if target and target.Character then
-                if settings.silentAimShowTarget then
-                    silentTargetLabel.Text = "SILENT: " .. target.Name
-                    silentTargetLabel.Visible = true
-                else
-                    silentTargetLabel.Visible = false
-                end
+                silentTargetLabel.Text = "SILENT: " .. target.Name .. " [" .. settings.silentHitPart .. "]"
+                silentTargetLabel.Visible = settings.silentAimShowTarget
             else
                 silentTargetLabel.Visible = false
             end
@@ -509,7 +490,7 @@ runOnActor(function()
     end
 
     -- ===========================
-    -- ESP (persistent, always on top)
+    -- ESP – Name & Distance (always on top)
     -- ===========================
     local espBills = {}
     local function removeESP(plr)
@@ -520,8 +501,8 @@ runOnActor(function()
         if espBills[plr] then return end
         local char = plr.Character
         if not char or not char:FindFirstChild("HumanoidRootPart") then return end
-        local root = char.HumanoidRootPart
-        local head = char:FindFirstChild("Head") or root
+        local head = char:FindFirstChild("Head")
+        if not head then return end
         local bill = Instance.new("BillboardGui")
         bill.Adornee = head
         bill.StudsOffset = Vector3.new(0, 2.5, 0)
@@ -559,14 +540,19 @@ runOnActor(function()
     local function setESPEnabled(value)
         settings.espEnabled = value
         if value then
-            for _, plr in pairs(players:GetPlayers()) do ensureESP(plr) end
+            for _, plr in pairs(players:GetPlayers()) do
+                if plr.Character and plr.Character:FindFirstChild("Head") then
+                    ensureESP(plr)
+                end
+            end
         else
             for plr in pairs(espBills) do removeESP(plr) end
             espBills = {}
         end
     end
     players.PlayerAdded:Connect(function(plr)
-        plr.CharacterAdded:Connect(function()
+        plr.CharacterAdded:Connect(function(char)
+            wait(0.5)
             removeESP(plr)
             if settings.espEnabled then ensureESP(plr) end
         end)
@@ -575,81 +561,125 @@ runOnActor(function()
     players.PlayerRemoving:Connect(removeESP)
 
     -- ===========================
-    -- PLAYER OUTLINE (Box) – through walls
+    -- DRAWING‑BASED OUTLINE, CHAMS, SKELETON
     -- ===========================
+    if not Drawing then warn("Drawing library not available.") end
+
     local outlineHighlights = {}
+    local chamSquares = {}
+    local skeletonLines = {}
+
+    local function createBoxDrawing()
+        if Drawing then
+            local box = Drawing.new("Square")
+            box.Thickness = 2
+            box.Filled = false
+            box.Visible = false
+            box.ZIndex = 100
+            return box
+        end
+    end
+
     local function updateOutlines()
         if not settings.playerOutlineEnabled then
-            for _, hl in pairs(outlineHighlights) do hl:Destroy() end
-            outlineHighlights = {}
+            for plr, data in pairs(outlineHighlights) do
+                for _, d in ipairs(data) do d:Remove() end
+                outlineHighlights[plr] = nil
+            end
             return
         end
         local col = Color3.new(settings.outlineColorR, settings.outlineColorG, settings.outlineColorB)
         for _, plr in pairs(players:GetPlayers()) do
             if plr == player then continue end
             local char = plr.Character
-            if not char then
-                if outlineHighlights[plr] then outlineHighlights[plr]:Destroy(); outlineHighlights[plr] = nil end
-            else
-                if not outlineHighlights[plr] then
-                    local hl = Instance.new("Highlight")
-                    hl.FillTransparency = 1
-                    hl.OutlineTransparency = 0
-                    hl.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop  -- through walls
-                    hl.Adornee = char
-                    hl.Parent = workspace
-                    outlineHighlights[plr] = hl
+            if not char or not char:FindFirstChild("HumanoidRootPart") then
+                if outlineHighlights[plr] then
+                    for _, d in ipairs(outlineHighlights[plr]) do d:Remove() end
+                    outlineHighlights[plr] = nil
                 end
-                outlineHighlights[plr].OutlineColor = col
+            else
+                local root = char.HumanoidRootPart
+                local head = char:FindFirstChild("Head") or root
+                local p1 = camera:WorldToViewportPoint((head.Position + Vector3.new(1.5, 1.5, 0)))
+                local p2 = camera:WorldToViewportPoint((root.Position - Vector3.new(1.5, 2.5, 0)))
+                if p1.Z > 0 and p2.Z > 0 then
+                    if not outlineHighlights[plr] then
+                        outlineHighlights[plr] = {createBoxDrawing(), createBoxDrawing()}
+                    end
+                    local size = Vector2.new(math.abs(p2.X - p1.X), math.abs(p2.Y - p1.Y))
+                    local center = Vector2.new((p1.X + p2.X)/2, (p1.Y + p2.Y)/2)
+                    for _, box in ipairs(outlineHighlights[plr]) do
+                        box.Size = size
+                        box.Position = center - size/2
+                        box.Color = col
+                        box.Visible = true
+                    end
+                else
+                    if outlineHighlights[plr] then
+                        for _, d in ipairs(outlineHighlights[plr]) do d.Visible = false end
+                    end
+                end
             end
-        end
-        for plr, hl in pairs(outlineHighlights) do
-            if not plr.Parent then hl:Destroy(); outlineHighlights[plr] = nil end
         end
     end
 
-    -- ===========================
-    -- CHAMS – through walls
-    -- ===========================
-    local chamHighlights = {}
     local function updateChams()
+        if not Drawing then return end
         if not settings.chamsEnabled then
-            for _, hl in pairs(chamHighlights) do hl:Destroy() end
-            chamHighlights = {}
+            for plr, data in pairs(chamSquares) do
+                for _, d in ipairs(data) do d:Remove() end
+                chamSquares[plr] = nil
+            end
             return
         end
         local col = Color3.new(settings.chamsColorR, settings.chamsColorG, settings.chamsColorB)
         for _, plr in pairs(players:GetPlayers()) do
             if plr == player then continue end
             local char = plr.Character
-            if not char then
-                if chamHighlights[plr] then chamHighlights[plr]:Destroy(); chamHighlights[plr] = nil end
-            else
-                if not chamHighlights[plr] then
-                    local hl = Instance.new("Highlight")
-                    hl.FillTransparency = 0.4
-                    hl.OutlineTransparency = 1
-                    hl.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop  -- through walls
-                    hl.Adornee = char
-                    hl.Parent = workspace
-                    chamHighlights[plr] = hl
+            if not char or not char:FindFirstChild("HumanoidRootPart") then
+                if chamSquares[plr] then
+                    for _, d in ipairs(chamSquares[plr]) do d:Remove() end
+                    chamSquares[plr] = nil
                 end
-                chamHighlights[plr].FillColor = col
+            else
+                local root = char.HumanoidRootPart
+                local head = char:FindFirstChild("Head") or root
+                local p1 = camera:WorldToViewportPoint((head.Position + Vector3.new(1.5, 1.5, 0)))
+                local p2 = camera:WorldToViewportPoint((root.Position - Vector3.new(1.5, 2.5, 0)))
+                if p1.Z > 0 and p2.Z > 0 then
+                    if not chamSquares[plr] then
+                        chamSquares[plr] = {Drawing.new("Square"), Drawing.new("Square")}
+                        for _, square in ipairs(chamSquares[plr]) do
+                            square.Thickness = 0
+                            square.Filled = true
+                            square.Transparency = 0.4
+                            square.ZIndex = 99
+                            square.Visible = false
+                        end
+                    end
+                    local size = Vector2.new(math.abs(p2.X - p1.X), math.abs(p2.Y - p1.Y))
+                    local center = Vector2.new((p1.X + p2.X)/2, (p1.Y + p2.Y)/2)
+                    for _, square in ipairs(chamSquares[plr]) do
+                        square.Size = size
+                        square.Position = center - size/2
+                        square.Color = col
+                        square.Visible = true
+                    end
+                else
+                    if chamSquares[plr] then
+                        for _, d in ipairs(chamSquares[plr]) do d.Visible = false end
+                    end
+                end
             end
-        end
-        for plr, hl in pairs(chamHighlights) do
-            if not plr.Parent then hl:Destroy(); chamHighlights[plr] = nil end
         end
     end
 
-    -- ===========================
-    -- SKELETON (Drawing) – through walls via AlwaysOnTop
-    -- ===========================
-    local skeletonLines = {}
     local function updateSkeleton()
         if not Drawing then return end
         if not settings.skeletonEnabled then
-            for plr, lines in pairs(skeletonLines) do for _, l in ipairs(lines) do l.Visible = false end end
+            for plr, lines in pairs(skeletonLines) do
+                for _, l in ipairs(lines) do l.Visible = false end
+            end
             return
         end
         local col = Color3.new(settings.skeletonColorR, settings.skeletonColorG, settings.skeletonColorB)
@@ -667,7 +697,8 @@ runOnActor(function()
                 lleg = char:FindFirstChild("LeftUpperLeg") or char:FindFirstChild("Left Leg"),
                 rleg = char:FindFirstChild("RightUpperLeg") or char:FindFirstChild("Right Leg")
             }
-            local function wp(p) if not p then return nil end
+            local function wp(p)
+                if not p then return nil end
                 local pos, on = camera:WorldToViewportPoint(p.Position)
                 if on then return Vector2.new(pos.X, pos.Y) end
                 return nil
@@ -679,9 +710,8 @@ runOnActor(function()
                 for i=1,5 do
                     local line = Drawing.new("Line")
                     line.Thickness = 2
-                    line.Color = col
+                    line.ZIndex = 100
                     line.Visible = false
-                    line.ZIndex = 100  -- force draw on top
                     skeletonLines[plr][i] = line
                 end
             end
@@ -708,7 +738,7 @@ runOnActor(function()
     end
 
     -- ===========================
-    -- BIG HEAD (with outline)
+    -- BIG HEAD
     -- ===========================
     local bigHeadOutlines = {}
     local function updateBigHead()
@@ -731,55 +761,52 @@ runOnActor(function()
                     hl.Parent = workspace
                     bigHeadOutlines[plr] = hl
                 end
-                if bigHeadOutlines[plr] then
-                    bigHeadOutlines[plr].OutlineColor = outlineColor
-                end
+                bigHeadOutlines[plr].OutlineColor = outlineColor
             else
-                if bigHeadOutlines[plr] then
-                    bigHeadOutlines[plr]:Destroy()
-                    bigHeadOutlines[plr] = nil
-                end
+                if bigHeadOutlines[plr] then bigHeadOutlines[plr]:Destroy(); bigHeadOutlines[plr] = nil end
             end
         end
         for plr, hl in pairs(bigHeadOutlines) do
             if not plr.Parent or not plr.Character or not plr.Character:FindFirstChild("Head") then
-                hl:Destroy()
-                bigHeadOutlines[plr] = nil
+                hl:Destroy(); bigHeadOutlines[plr] = nil
             end
         end
     end
 
     -- ===========================
-    -- SPEED HACK (fixed)
+    -- SPEED HACK (no rubberband – uses BodyVelocity)
     -- ===========================
-    local defaultWalkspeed = 16
-    player.CharacterAdded:Connect(function(char)
-        local hum = char:WaitForChild("Humanoid")
-        if hum then
-            defaultWalkspeed = hum.WalkSpeed
-            if settings.speedHackEnabled then
-                hum.WalkSpeed = settings.speedHackValue
-            end
-        end
-    end)
-
+    local speedBV = nil
     local function updateSpeedHack()
-        if player.Character and player.Character:FindFirstChildOfClass("Humanoid") then
-            local hum = player.Character:FindFirstChildOfClass("Humanoid")
-            if settings.speedHackEnabled then
-                hum.WalkSpeed = settings.speedHackValue
-            else
-                hum.WalkSpeed = defaultWalkspeed
+        local char = player.Character
+        if not char or not char:FindFirstChild("HumanoidRootPart") then return end
+        if settings.speedHackEnabled then
+            if not speedBV then
+                speedBV = Instance.new("BodyVelocity")
+                speedBV.MaxForce = Vector3.new(400000, 0, 400000)
+                speedBV.Velocity = Vector3.zero
+                speedBV.Parent = char.HumanoidRootPart
             end
+            local moveDir = Vector3.zero
+            if userInput:IsKeyDown(Enum.KeyCode.W) then moveDir += camera.CFrame.LookVector end
+            if userInput:IsKeyDown(Enum.KeyCode.S) then moveDir -= camera.CFrame.LookVector end
+            if userInput:IsKeyDown(Enum.KeyCode.A) then moveDir -= camera.CFrame.RightVector end
+            if userInput:IsKeyDown(Enum.KeyCode.D) then moveDir += camera.CFrame.RightVector end
+            if moveDir.Magnitude > 0 then
+                speedBV.Velocity = moveDir.Unit * settings.speedHackValue
+            else
+                speedBV.Velocity = Vector3.zero
+            end
+        else
+            if speedBV then speedBV:Destroy(); speedBV = nil end
         end
     end
 
     -- ===========================
-    -- UNIVERSAL MOVEMENT (Fly + Noclip Walk – no rubberband)
+    -- FLY & NOCLIP (smooth BodyPosition, no rubberband)
     -- ===========================
-    local flyBV = nil
-    local noclipBV = nil
-    local noclipConn = nil
+    local flyBP = nil
+    local noclipBP = nil
     local flyButtonsFrame = nil
     local flyFlags = {up=false, down=false, left=false, right=false, ascend=false, descend=false}
     local gamepadMove = Vector2.zero
@@ -808,8 +835,9 @@ runOnActor(function()
         if flyButtonsFrame then flyButtonsFrame:Destroy() end
         flyButtonsFrame = Instance.new("Frame")
         flyButtonsFrame.Size = UDim2.new(0, 240, 0, 240)
-        flyButtonsFrame.Position = UDim2.new(0.5, -120, 1, -280)
+        flyButtonsFrame.Position = UDim2.new(0.5, -120, 0.8, -120)  -- moved higher
         flyButtonsFrame.BackgroundTransparency = 1
+        flyButtonsFrame.ZIndex = 10
         flyButtonsFrame.Parent = screenGui
         local btnSize, gap = 60, 10
         local function makeButton(text, posX, posY, flag)
@@ -822,6 +850,7 @@ runOnActor(function()
             btn.TextColor3 = Color3.new(1,1,1)
             btn.Font = Enum.Font.GothamBold
             btn.TextSize = 18
+            btn.ZIndex = 10
             btn.Parent = flyButtonsFrame
             Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 8)
             btn.InputBegan:Connect(function(input)
@@ -852,7 +881,23 @@ runOnActor(function()
         settings.flyEnabled = false
         if flyButtonsFrame then flyButtonsFrame:Destroy(); flyButtonsFrame = nil end
         for k in pairs(flyFlags) do flyFlags[k] = false end
-        if flyBV then flyBV:Destroy(); flyBV = nil end
+        if flyBP then flyBP:Destroy(); flyBP = nil end
+        -- Reset velocity and state
+        if player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+            player.Character.HumanoidRootPart.Velocity = Vector3.zero
+            local hum = player.Character:FindFirstChildOfClass("Humanoid")
+            if hum then hum.PlatformStand = false end
+        end
+    end
+    local function disableNoclip()
+        settings.noclipWalkEnabled = false
+        if noclipBP then noclipBP:Destroy(); noclipBP = nil end
+        if player.Character then
+            for _, part in ipairs(player.Character:GetDescendants()) do
+                if part:IsA("BasePart") then part.CanCollide = true end
+            end
+            player.Character.HumanoidRootPart.Velocity = Vector3.zero
+        end
     end
 
     local function universalMovementLoop()
@@ -860,14 +905,17 @@ runOnActor(function()
         if not char or not char:FindFirstChild("HumanoidRootPart") then return end
         local root = char.HumanoidRootPart
 
-        -- Noclip: disable collision (smooth movement)
+        -- Noclip (BodyPosition, no collisions)
         if settings.noclipWalkEnabled and not settings.flyEnabled then
             for _, part in ipairs(char:GetDescendants()) do
                 if part:IsA("BasePart") then part.CanCollide = false end
             end
-            if not noclipBV then
-                noclipBV = Instance.new("BodyVelocity", root)
-                noclipBV.MaxForce = Vector3.new(1e5, 1e5, 1e5)
+            if not noclipBP then
+                noclipBP = Instance.new("BodyPosition")
+                noclipBP.MaxForce = Vector3.new(1e5, 1e5, 1e5)
+                noclipBP.D = 200
+                noclipBP.P = 20000
+                noclipBP.Parent = root
             end
             local moveDir = Vector3.zero
             if userInput:IsKeyDown(Enum.KeyCode.W) then moveDir += camera.CFrame.LookVector end
@@ -876,24 +924,30 @@ runOnActor(function()
             if userInput:IsKeyDown(Enum.KeyCode.D) then moveDir += camera.CFrame.RightVector end
             if userInput:IsKeyDown(Enum.KeyCode.Space) then moveDir += Vector3.new(0,1,0) end
             if userInput:IsKeyDown(Enum.KeyCode.LeftControl) then moveDir += Vector3.new(0,-1,0) end
-            -- gamepad
             if math.abs(gamepadMove.X) > 0.1 then moveDir += camera.CFrame.RightVector * gamepadMove.X end
             if math.abs(gamepadMove.Y) > 0.1 then moveDir += camera.CFrame.LookVector * (-gamepadMove.Y) end
-
             if moveDir.Magnitude > 0 then
-                noclipBV.Velocity = moveDir.Unit * settings.noclipWalkSpeed
+                noclipBP.Position = root.Position + moveDir.Unit * settings.noclipWalkSpeed * 0.05
             else
-                noclipBV.Velocity = Vector3.zero
+                noclipBP.Position = root.Position
             end
         else
-            if noclipBV then noclipBV:Destroy(); noclipBV = nil end
+            if noclipBP then noclipBP:Destroy(); noclipBP = nil end
+            if not settings.noclipWalkEnabled and char then
+                for _, part in ipairs(char:GetDescendants()) do
+                    if part:IsA("BasePart") then part.CanCollide = true end
+                end
+            end
         end
 
-        -- Fly
+        -- Fly (BodyPosition)
         if settings.flyEnabled then
-            if not flyBV then
-                flyBV = Instance.new("BodyVelocity", root)
-                flyBV.MaxForce = Vector3.new(1e5, 1e5, 1e5)
+            if not flyBP then
+                flyBP = Instance.new("BodyPosition")
+                flyBP.MaxForce = Vector3.new(1e5, 1e5, 1e5)
+                flyBP.D = 200
+                flyBP.P = 20000
+                flyBP.Parent = root
             end
             local moveDir = Vector3.zero
             if userInput:IsKeyDown(Enum.KeyCode.W) then moveDir += camera.CFrame.LookVector end
@@ -914,21 +968,20 @@ runOnActor(function()
             if gamepadDescend then moveDir += Vector3.new(0,-1,0) end
 
             if moveDir.Magnitude > 0 then
-                flyBV.Velocity = moveDir.Unit * settings.flySpeed
+                flyBP.Position = root.Position + moveDir.Unit * settings.flySpeed * 0.05
             else
-                flyBV.Velocity = Vector3.zero
+                flyBP.Position = root.Position
             end
         else
-            if flyBV then flyBV:Destroy(); flyBV = nil end
+            if flyBP then flyBP:Destroy(); flyBP = nil end
         end
     end
 
     -- ===========================
-    -- TP KILL (team check, mobile button, auto equip)
+    -- TP KILL
     -- ===========================
     local tpKillConn = nil
     local tpKillButton = nil
-
     local function createTPKillButton()
         if tpKillButton then tpKillButton:Destroy() end
         tpKillButton = Instance.new("TextButton")
@@ -940,12 +993,10 @@ runOnActor(function()
         tpKillButton.TextColor3 = Color3.new(1,1,1)
         tpKillButton.Font = Enum.Font.GothamBold
         tpKillButton.TextSize = 14
+        tpKillButton.ZIndex = 10
         tpKillButton.Parent = screenGui
-        tpKillButton.Activated:Connect(function()
-            performTPKill()
-        end)
+        tpKillButton.Activated:Connect(performTPKill)
     end
-
     local function performTPKill()
         local target = getClosestPlayerTPKill()
         if not target or not target.Character or not target.Character:FindFirstChild("HumanoidRootPart") then return end
@@ -954,65 +1005,45 @@ runOnActor(function()
         if not myChar or not myChar:FindFirstChild("HumanoidRootPart") then return end
         local myRoot = myChar.HumanoidRootPart
         myRoot.CFrame = root.CFrame * CFrame.new(0, 0, 3)
-
-        -- auto equip best tool
         local tool = player.Backpack:FindFirstChildOfClass("Tool") or player.Character:FindFirstChildOfClass("Tool")
         if not tool then
             local tools = {}
             for _, t in ipairs(player.Backpack:GetChildren()) do if t:IsA("Tool") then table.insert(tools, t) end end
-            if #tools > 0 then
-                tool = tools[1]
-                player.Character.Humanoid:EquipTool(tool)
-                wait(0.1)
-            end
+            if #tools > 0 then tool = tools[1]; player.Character.Humanoid:EquipTool(tool); wait(0.1) end
         end
-        if tool then
-            tool:Activate()
-            wait(0.1)
-            tool:Deactivate()
-        end
+        if tool then tool:Activate(); wait(0.1); tool:Deactivate() end
     end
-
     local function startTPKill()
         if tpKillConn then tpKillConn:Disconnect() end
         tpKillConn = userInput.InputBegan:Connect(function(input, gp)
             if gp then return end
-            if input.KeyCode == settings.tpKillKey then
-                performTPKill()
-            end
+            if input.KeyCode == settings.tpKillKey then performTPKill() end
         end)
         createTPKillButton()
     end
-
     local function stopTPKill()
         if tpKillConn then tpKillConn:Disconnect(); tpKillConn = nil end
         if tpKillButton then tpKillButton:Destroy(); tpKillButton = nil end
     end
 
     -- ===========================
-    -- CAMERA (FOV lock + aspect ratio)
+    -- CAMERA
     -- ===========================
     local function updateCamera()
-        if settings.lockFOV then
-            camera.FieldOfView = settings.cameraFOV
-        end
+        if settings.lockFOV then camera.FieldOfView = settings.cameraFOV end
         if settings.aspectRatioEnabled then
-            local val = settings.aspectRatioValue
-            camera.CFrame = camera.CFrame * CFrame.new(0, 0, 0, 1, 0, 0, 0, val, 0, 0, 0, 1)
+            camera.CFrame = camera.CFrame * CFrame.new(0,0,0, 1,0,0, 0,settings.aspectRatioValue,0, 0,0,1)
         end
     end
 
     -- ===========================
-    -- WEBHOOK FUNCTIONS
+    -- WEBHOOK
     -- ===========================
     local function getActiveFeatures()
         local list = {}
-        for k, v in pairs(settings) do
-            if type(v) == "boolean" and v == true then table.insert(list, k) end
-        end
+        for k, v in pairs(settings) do if type(v) == "boolean" and v then table.insert(list, k) end end
         return #list > 0 and table.concat(list, ", ") or "None"
     end
-
     local function sendWebhook(initial)
         if webhookURL == "" then return end
         task.spawn(function()
@@ -1023,8 +1054,6 @@ runOnActor(function()
                 if userInput.GamepadEnabled then platform = "Console" end
                 local executorName = "Unknown"
                 pcall(function() executorName = identifyexecutor() or getexecutorname() or "Unknown" end)
-                local activeFeatures = getActiveFeatures()
-
                 local embed = {
                     title = initial and "🛡️ Cookware Injected" or "📊 Cookware Status Update",
                     color = initial and 16711680 or 65280,
@@ -1039,35 +1068,25 @@ runOnActor(function()
                         {name = "Game", value = game:GetService("MarketplaceService"):GetProductInfo(game.PlaceId).Name, inline = false},
                         {name = "Place ID", value = tostring(game.PlaceId), inline = true},
                         {name = "Job ID", value = game.JobId, inline = true},
-                        {name = "Active Features", value = activeFeatures, inline = false},
+                        {name = "Active Features", value = getActiveFeatures(), inline = false},
                         {name = "Time", value = os.date("%Y-%m-%d %H:%M:%S"), inline = false}
                     },
                     footer = {text = "Cookware Injection Logger"}
                 }
-
                 local payload = httpService:JSONEncode({embeds = {embed}})
-                local success, err = pcall(function()
-                    if syn and syn.request then
-                        syn.request({Url = webhookURL, Method = "POST", Headers = {["Content-Type"] = "application/json"}, Body = payload})
-                    elseif http_request then
-                        http_request({Url = webhookURL, Method = "POST", Headers = {["Content-Type"] = "application/json"}, Body = payload})
-                    end
-                end)
-                if not success then warn("Webhook send failed: " .. tostring(err)) end
+                if syn and syn.request then
+                    syn.request({Url = webhookURL, Method = "POST", Headers = {["Content-Type"] = "application/json"}, Body = payload})
+                elseif http_request then
+                    http_request({Url = webhookURL, Method = "POST", Headers = {["Content-Type"] = "application/json"}, Body = payload})
+                end
             end)
         end)
     end
-
     sendWebhook(true)
-    task.spawn(function()
-        while true do
-            task.wait(300)
-            sendWebhook(false)
-        end
-    end)
+    task.spawn(function() while true do task.wait(300) sendWebhook(false) end end)
 
     -- ===========================
-    -- UI (FULL TABS + dragging + colour picker)
+    -- UI (with fixed colour picker)
     -- ===========================
     task.wait(1)
     local parentGui = player:FindFirstChild("PlayerGui") or game:GetService("CoreGui")
@@ -1098,27 +1117,15 @@ runOnActor(function()
     mainFrame.Visible = false
     mainFrame.Parent = screenGui
 
-    -- Dragging logic
     local function makeDraggable(gui, lockSetting)
-        local dragging = false
-        local dragInput, dragStart, startPos
+        local dragging, dragInput, dragStart, startPos
         gui.InputBegan:Connect(function(input)
             if (input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch) and not lockSetting then
-                dragging = true
-                dragStart = input.Position
-                startPos = gui.Position
-                input.Changed:Connect(function()
-                    if input.UserInputState == Enum.UserInputState.End then
-                        dragging = false
-                    end
-                end)
+                dragging = true; dragStart = input.Position; startPos = gui.Position
+                input.Changed:Connect(function() if input.UserInputState == Enum.UserInputState.End then dragging = false end end)
             end
         end)
-        gui.InputChanged:Connect(function(input)
-            if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
-                dragInput = input
-            end
-        end)
+        gui.InputChanged:Connect(function(input) if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then dragInput = input end end)
         userInput.InputChanged:Connect(function(input)
             if dragging and input == dragInput then
                 local delta = input.Position - dragStart
@@ -1129,7 +1136,6 @@ runOnActor(function()
     makeDraggable(toggleBtn, settings.lockToggleUI)
     makeDraggable(mainFrame, settings.lockUI)
 
-    -- Tabs
     local tabNames = {"ESP", "AIM", "WEAPONS", "MOVEMENT", "RAGE", "UI", "MISC"}
     local tabButtons = {}
     local tabFrames = {}
@@ -1204,8 +1210,8 @@ runOnActor(function()
             elseif settingName == "bigHeadEnabled" then updateBigHead()
             elseif settingName == "tpKillEnabled" then
                 if settings.tpKillEnabled then startTPKill() else stopTPKill() end
-            elseif settingName == "speedHackEnabled" then updateSpeedHack()
-            elseif settingName == "lockFOV" or settingName == "aspectRatioEnabled" then updateCamera()
+            elseif settingName == "noclipWalkEnabled" then
+                if not settings.noclipWalkEnabled then disableNoclip() end
             end
         end)
     end
@@ -1255,69 +1261,133 @@ runOnActor(function()
         plus.Activated:Connect(function() updateVal(step) end)
     end
 
-    -- Advanced colour picker with RGB textboxes (real-time preview)
-    local function addColorPicker(tabIdx, label, rKey, gKey, bKey, callback)
+    -- Fixed colour picker: hue bar + brightness slider both visible
+    local function addColorPicker(tabIdx, titleText, rKey, gKey, bKey, callback)
         local frame = tabFrames[tabIdx]
         elementCounts[tabIdx] = elementCounts[tabIdx] + 1
         local cont = Instance.new("Frame")
-        cont.Size = UDim2.new(0, 340, 0, 120)
+        cont.Size = UDim2.new(0, 340, 0, 150)
         cont.LayoutOrder = elementCounts[tabIdx]
         cont.BackgroundColor3 = Color3.fromRGB(50,50,50)
         cont.Parent = frame
 
         local title = Instance.new("TextLabel")
-        title.Size = UDim2.new(1, -10, 0, 18)
+        title.Size = UDim2.new(0, 200, 0, 18)
         title.Position = UDim2.new(0, 5, 0, 2)
         title.BackgroundTransparency = 1
-        title.Text = label
+        title.Text = titleText
         title.TextColor3 = Color3.fromRGB(255,255,255)
         title.Font = Enum.Font.SourceSansBold
         title.TextSize = 13
         title.TextXAlignment = Enum.TextXAlignment.Left
         title.Parent = cont
 
+        -- Hue bar
+        local hueBar = Instance.new("ImageButton")
+        hueBar.Size = UDim2.new(0, 280, 0, 20)
+        hueBar.Position = UDim2.new(0, 10, 0, 25)
+        hueBar.Image = "rbxassetid://7488764949"
+        hueBar.BackgroundTransparency = 1
+        hueBar.Parent = cont
+        local hueSelector = Instance.new("Frame")
+        hueSelector.Size = UDim2.new(0, 4, 0, 20)
+        hueSelector.BackgroundColor3 = Color3.new(1,1,1)
+        hueSelector.BorderSizePixel = 0
+        hueSelector.AnchorPoint = Vector2.new(0.5, 0)
+        hueSelector.Parent = hueBar
+
+        -- Brightness bar (visible)
+        local brightBar = Instance.new("Frame")
+        brightBar.Size = UDim2.new(0, 280, 0, 20)
+        brightBar.Position = UDim2.new(0, 10, 0, 55)
+        brightBar.BackgroundColor3 = Color3.fromRGB(0,0,0)
+        brightBar.Parent = cont
+        local brightGradient = Instance.new("UIGradient", brightBar)
+        brightGradient.Color = ColorSequence.new({
+            ColorSequenceKeypoint.new(0, Color3.fromRGB(0,0,0)),
+            ColorSequenceKeypoint.new(1, Color3.fromRGB(255,255,255))
+        })
+        local brightFill = Instance.new("Frame")
+        brightFill.Size = UDim2.new(1, 0, 1, 0)
+        brightFill.BackgroundColor3 = Color3.new(1,0,0)
+        brightFill.BackgroundTransparency = 0.5
+        brightFill.Parent = brightBar
+        local brightFillGrad = Instance.new("UIGradient", brightFill)
+        brightFillGrad.Color = ColorSequence.new({
+            ColorSequenceKeypoint.new(0, Color3.fromRGB(0,0,0)),
+            ColorSequenceKeypoint.new(1, Color3.fromRGB(255,255,255))
+        })
+        local brightSelector = Instance.new("Frame")
+        brightSelector.Size = UDim2.new(0, 4, 0, 20)
+        brightSelector.BackgroundColor3 = Color3.new(1,1,1)
+        brightSelector.BorderSizePixel = 0
+        brightSelector.AnchorPoint = Vector2.new(0.5, 0)
+        brightSelector.Parent = brightBar
+
         local preview = Instance.new("Frame")
         preview.Size = UDim2.new(0, 40, 0, 40)
-        preview.Position = UDim2.new(1, -45, 0, 2)
+        preview.Position = UDim2.new(1, -45, 0, 90)
         preview.BackgroundColor3 = Color3.new(settings[rKey], settings[gKey], settings[bKey])
         preview.Parent = cont
         Instance.new("UICorner", preview).CornerRadius = UDim.new(0,8)
 
-        local function makeRGBSlider(offset, colorKey, colorName)
-            local lbl = Instance.new("TextLabel")
-            lbl.Size = UDim2.new(0, 14, 0, 20)
-            lbl.Position = UDim2.new(0, 8, 0, 25 + offset*28)
-            lbl.BackgroundTransparency = 1
-            lbl.Text = colorName
-            lbl.TextColor3 = Color3.fromRGB(255,255,255)
-            lbl.Font = Enum.Font.SourceSansBold
-            lbl.TextSize = 12
-            lbl.Parent = cont
+        local currentHue = 0
+        local currentBrightness = 1
 
-            local slider = Instance.new("TextBox")
-            slider.Size = UDim2.new(0, 220, 0, 20)
-            slider.Position = UDim2.new(0, 25, 0, 25 + offset*28)
-            slider.BackgroundColor3 = Color3.fromRGB(40,40,50)
-            slider.TextColor3 = Color3.fromRGB(255,255,255)
-            slider.Font = Enum.Font.SourceSans
-            slider.TextSize = 11
-            slider.Text = tostring(math.floor(settings[colorKey]*255))
-            slider.Parent = cont
-
-            slider.FocusLost:Connect(function()
-                local num = tonumber(slider.Text)
-                if num then
-                    settings[colorKey] = math.clamp(num/255, 0, 1)
-                end
-                slider.Text = tostring(math.floor(settings[colorKey]*255))
-                preview.BackgroundColor3 = Color3.new(settings[rKey], settings[gKey], settings[bKey])
-                if callback then callback() end
-            end)
+        local function updatePreview()
+            local c = Color3.fromHSV(currentHue, 1, currentBrightness)
+            preview.BackgroundColor3 = c
+            settings[rKey] = c.r
+            settings[gKey] = c.g
+            settings[bKey] = c.b
+            if callback then callback() end
         end
 
-        makeRGBSlider(0, rKey, "R")
-        makeRGBSlider(1, gKey, "G")
-        makeRGBSlider(2, bKey, "B")
+        local initR, initG, initB = settings[rKey], settings[gKey], settings[bKey]
+        local h, s, v = Color3.toHSV(Color3.new(initR, initG, initB))
+        currentHue = h
+        currentBrightness = v
+        hueSelector.Position = UDim2.new(currentHue, 0, 0, 0)
+        brightFill.BackgroundColor3 = Color3.fromHSV(currentHue, 1, 1)
+        brightSelector.Position = UDim2.new(currentBrightness, 0, 0, 0)
+        updatePreview()
+
+        local function onHueInput(input)
+            if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+                local pos = input.Position.X - hueBar.AbsolutePosition.X
+                currentHue = math.clamp(pos / hueBar.AbsoluteSize.X, 0, 1)
+                hueSelector.Position = UDim2.new(currentHue, 0, 0, 0)
+                brightFill.BackgroundColor3 = Color3.fromHSV(currentHue, 1, 1)
+                updatePreview()
+            end
+        end
+        hueBar.InputBegan:Connect(onHueInput)
+        hueBar.InputChanged:Connect(function(input)
+            if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
+                if input.UserInputState == Enum.UserInputState.Change then onHueInput(input) end
+            end
+        end)
+
+        local function onBrightInput(input)
+            if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+                local pos = input.Position.X - brightBar.AbsolutePosition.X
+                currentBrightness = math.clamp(pos / brightBar.AbsoluteSize.X, 0, 1)
+                brightSelector.Position = UDim2.new(currentBrightness, 0, 0, 0)
+                updatePreview()
+            end
+        end
+        -- Make the whole brightBar clickable
+        local brightButton = Instance.new("TextButton")
+        brightButton.Size = UDim2.new(1,0,1,0)
+        brightButton.BackgroundTransparency = 1
+        brightButton.Text = ""
+        brightButton.Parent = brightBar
+        brightButton.InputBegan:Connect(onBrightInput)
+        brightButton.InputChanged:Connect(function(input)
+            if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
+                if input.UserInputState == Enum.UserInputState.Change then onBrightInput(input) end
+            end
+        end)
     end
 
     local function addSeparator(tabIdx, text)
@@ -1334,44 +1404,77 @@ runOnActor(function()
         sep.Parent = frame
     end
 
+    local function addDropdown(tabIdx, text, settingName, options, callback)
+        local frame = tabFrames[tabIdx]
+        elementCounts[tabIdx] = elementCounts[tabIdx] + 1
+        local cont = Instance.new("Frame")
+        cont.Size = UDim2.new(0, 340, 0, 40)
+        cont.LayoutOrder = elementCounts[tabIdx]
+        cont.BackgroundColor3 = Color3.fromRGB(50,50,50)
+        cont.Parent = frame
+        local label = Instance.new("TextLabel")
+        label.Size = UDim2.new(0, 140, 1, 0)
+        label.Position = UDim2.new(0, 5, 0, 0)
+        label.BackgroundTransparency = 1
+        label.Text = text .. ": " .. settings[settingName]
+        label.TextColor3 = Color3.fromRGB(255,255,255)
+        label.Font = Enum.Font.SourceSans
+        label.TextSize = 12
+        label.TextXAlignment = Enum.TextXAlignment.Left
+        label.Parent = cont
+        local btn = Instance.new("TextButton")
+        btn.Size = UDim2.new(0, 120, 0, 30)
+        btn.Position = UDim2.new(0, 200, 0, 5)
+        btn.Text = "Cycle"
+        btn.BackgroundColor3 = Color3.fromRGB(80,80,80)
+        btn.TextColor3 = Color3.new(1,1,1)
+        btn.Font = Enum.Font.GothamBold
+        btn.TextSize = 12
+        btn.Parent = cont
+        local idx = table.find(options, settings[settingName]) or 1
+        btn.Activated:Connect(function()
+            idx = idx % #options + 1
+            settings[settingName] = options[idx]
+            label.Text = text .. ": " .. settings[settingName]
+            if callback then callback(settings[settingName]) end
+        end)
+    end
+
     -- ================= POPULATE TABS =================
-    -- ESP Tab
     addSeparator(1, "──── ESP ────")
     addToggle(1, "ESP Master", "espEnabled")
     addToggle(1, "Player Outline", "playerOutlineEnabled")
-    addColorPicker(1, "Outline Color", "outlineColorR", "outlineColorG", "outlineColorB", function() updateOutlines() end)
+    addColorPicker(1, "Outline Color", "outlineColorR", "outlineColorG", "outlineColorB", updateOutlines)
     addToggle(1, "Chams", "chamsEnabled")
-    addColorPicker(1, "Chams Color", "chamsColorR", "chamsColorG", "chamsColorB", function() updateChams() end)
+    addColorPicker(1, "Chams Color", "chamsColorR", "chamsColorG", "chamsColorB", updateChams)
     addToggle(1, "Skeleton", "skeletonEnabled")
-    addColorPicker(1, "Skeleton Color", "skeletonColorR", "skeletonColorG", "skeletonColorB", function() updateSkeleton() end)
+    addColorPicker(1, "Skeleton Color", "skeletonColorR", "skeletonColorG", "skeletonColorB", updateSkeleton)
 
-    -- AIM Tab
     addSeparator(2, "──── AIM ASSIST ────")
     addToggle(2, "Aim Assist", "aimAssistEnabled")
     addSlider(2, "FOV", "aimFOV", 20, 500, 10)
     addSlider(2, "Smoothness", "aimSmoothness", 1, 20, 1)
+    addDropdown(2, "Target Part", "aimHitPart", {"Head", "Torso", "Feet"})
     addToggle(2, "Visibility Check", "aimVisibilityCheck")
     addToggle(2, "Team Check", "aimTeamCheck")
     addToggle(2, "Show FOV Circle", "aimShowFOV")
-    addColorPicker(2, "FOV Color", "aimFOVColorR", "aimFOVColorG", "aimFOVColorB", function() end)
+    addColorPicker(2, "FOV Color", "aimFOVColorR", "aimFOVColorG", "aimFOVColorB")
     addToggle(2, "Show Aim Target", "aimShowTarget")
     addSeparator(2, "──── SILENT AIM ────")
     addToggle(2, "Silent Aim", "silentAimEnabled")
     addSlider(2, "Silent FOV", "silentAimFOV", 20, 500, 10)
+    addDropdown(2, "Silent Target", "silentHitPart", {"Head", "Torso", "Feet"})
     addToggle(2, "Silent Vis Check", "silentAimVisibilityCheck")
     addToggle(2, "Silent Team Check", "silentAimTeamCheck")
     addToggle(2, "Show Silent FOV", "silentAimShowFOV")
-    addColorPicker(2, "Silent FOV Color", "silentAimFOVColorR", "silentAimFOVColorG", "silentAimFOVColorB", function() end)
+    addColorPicker(2, "Silent FOV Color", "silentAimFOVColorR", "silentAimFOVColorG", "silentAimFOVColorB")
     addToggle(2, "Show Silent Target", "silentAimShowTarget")
 
-    -- WEAPONS Tab (Remote spy toggle removed because it's always on)
     addSeparator(3, "──── WEAPONS ────")
     addToggle(3, "Infinite Ammo", "infiniteAmmo")
     addSlider(3, "Recoil Reduction", "recoilReduction", 0, 100, 5)
     addSlider(3, "Spread Reduction", "spreadReduction", 0, 100, 5)
-    -- No remote spy toggle here
 
-    -- MOVEMENT Tab
     addSeparator(4, "──── MOVEMENT ────")
     addToggle(4, "Fly", "flyEnabled")
     addSlider(4, "Fly Speed", "flySpeed", 10, 200, 5)
@@ -1380,31 +1483,27 @@ runOnActor(function()
     addToggle(4, "Speed Hack", "speedHackEnabled")
     addSlider(4, "Speed Value", "speedHackValue", 20, 100, 5)
 
-    -- RAGE Tab
     addSeparator(5, "──── RAGE ────")
     addToggle(5, "Big Head", "bigHeadEnabled")
     addSlider(5, "Head Size", "bigHeadSize", 1, 10, 1)
-    addColorPicker(5, "BigHead Outline", "bigHeadOutlineR", "bigHeadOutlineG", "bigHeadOutlineB", function() updateBigHead() end)
+    addColorPicker(5, "BigHead Outline", "bigHeadOutlineR", "bigHeadOutlineG", "bigHeadOutlineB", updateBigHead)
     addToggle(5, "TP Kill", "tpKillEnabled")
     addToggle(5, "TP Kill Team Check", "tpKillTeamCheck")
     addSeparator(5, "──── CAMERA ────")
     addSlider(5, "Camera FOV", "cameraFOV", 30, 120, 1, function(val) if settings.lockFOV then camera.FieldOfView = val end end)
     addToggle(5, "Lock FOV", "lockFOV")
     addToggle(5, "Aspect Ratio", "aspectRatioEnabled")
-    addSlider(5, "Stretch", "aspectRatioValue", 0.1, 2, 0.05, function(val) if settings.aspectRatioEnabled then updateCamera() end end)
+    addSlider(5, "Stretch", "aspectRatioValue", 0.1, 2, 0.05, updateCamera)
 
-    -- UI Tab
     addSeparator(6, "──── UI ────")
     addColorPicker(6, "UI Color", "uiColorR", "uiColorG", "uiColorB", applyFullUIColor)
 
-    -- MISC Tab
     addSeparator(7, "──── MISC ────")
     addToggle(7, "Mod Auto-Disable", "modAutoDisable")
     addToggle(7, "Mod Notify", "modDetectionEnabled")
     addToggle(7, "Lock Main Window", "lockUI")
     addToggle(7, "Lock Toggle Button", "lockToggleUI")
 
-    -- ====== UI TOGGLE ======
     local function toggleUI()
         mainFrame.Visible = not mainFrame.Visible
         toggleBtn.Text = mainFrame.Visible and "✖ close" or "☰ cookware"
@@ -1440,11 +1539,10 @@ runOnActor(function()
         if settings.bigHeadEnabled then updateBigHead() end
     end)
 
-    -- Set initial FOV
     camera.FieldOfView = settings.cameraFOV
 
-    print("Cookware v21.1 fully loaded – all features restored. Remote spy permanently active.")
+    print("Cookware v21.3 – All issues resolved. Enjoy.")
     pcall(function()
-        starterGui:SetCore("SendNotification",{Title="cookware v21.1",Text="All features ready. Tap ☰ to open.",Duration=5})
+        starterGui:SetCore("SendNotification",{Title="cookware v21.3",Text="Fixed & ready.",Duration=5})
     end)
 end)
