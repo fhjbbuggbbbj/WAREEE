@@ -1,25 +1,17 @@
--- Cookware v21.8 – Whitelist debug + all fixes
+-- Cookware v22 – firesignal Edition
 -- ===========================
 -- WEBHOOK CONFIG
 -- ===========================
 local webhookURL = "https://discord.com/api/webhooks/1510124638900846633/xAeKAI49mBWWRlMLOM7TXNQ2V_buES0gFgiiGHK8o_PkAJdGjEykZE5hROelQobRA7UE"
 
 -- ===========================
--- REMOTE WHITELIST (correct raw URL)
+-- REMOTE WHITELIST
 -- ===========================
--- IMPORTANT: Replace the reversed string with your ACTUAL raw file URL reversed.
--- The current string yields: https://raw.githubusercontent.com/YOUR_USER/YOUR_REPO/main/list.txt
--- If your file is elsewhere, adjust accordingly.
-local WHITELIST_URL = string.reverse("txt.tsilew/niam/oiber/erauqsrepyh/moc.tnetnocresubuhtigwar//:sptth")
--- This reversed equals: "https://raw.githubusercontent.com/hyperqsuaer/repo/main/list.txt" (example)
--- UPDATE IT to your own raw URL reversed.
-
+local WHITELIST_URL = string.reverse("txt.tsilew/niam/EEERAW/jbbbbuggbbjjhf/moc.tnetnocresubuhtigwar//:sptth")
 local allowedHWIDs = {
-    "f945b31a-20e7-410d-b113-d6ceae305a99",   -- permanent owner fallback
+    "f945b31a-20e7-410d-b113-d6ceae305a99",
 }
-
 local function fetchWhitelist()
-    print("[WHITELIST] Fetching from: " .. WHITELIST_URL)
     local body = nil
     local success, result = pcall(function()
         if http_request then
@@ -28,36 +20,22 @@ local function fetchWhitelist()
                 Method = "GET",
                 Headers = {["Cache-Control"] = "no-cache"}
             })
-            if response and response.Body then
-                return response.Body
-            end
+            if response and response.Body then return response.Body end
         end
-        if game and game.HttpGet then
-            return game:HttpGet(WHITELIST_URL, true)
-        end
+        if game and game.HttpGet then return game:HttpGet(WHITELIST_URL, true) end
         return nil
     end)
-    if not success then
-        warn("[WHITELIST] Fetch failed, using built-in list only. Error: " .. tostring(result))
-        return
-    end
+    if not success then warn("Whitelist fetch failed, using built-in list only.") return end
     body = result
     if body then
-        local added = 0
         for line in body:gmatch("[^\r\n]+") do
             line = line:gsub("^%s+", ""):gsub("%s+$", "")
             if line ~= "" and not line:match("^%-%-") and not line:match("^#") then
                 local found = false
                 for _, id in ipairs(allowedHWIDs) do if id == line then found = true break end end
-                if not found then
-                    table.insert(allowedHWIDs, line)
-                    added = added + 1
-                end
+                if not found then table.insert(allowedHWIDs, line) end
             end
         end
-        print("[WHITELIST] Added " .. added .. " HWIDs from GitHub. Total allowed: " .. #allowedHWIDs)
-    else
-        print("[WHITELIST] Fetch returned empty body. Using built-in list only.")
     end
 end
 fetchWhitelist()
@@ -71,35 +49,10 @@ local function getHWID()
     return id or "unknown"
 end
 local currentHWID = getHWID()
-print("[WHITELIST] Your HWID: " .. currentHWID)
-
--- Blacklist check
-for _, id in ipairs(blacklistedHWIDs) do
-    if id == currentHWID then
-        game.Players.LocalPlayer:Kick("Blacklisted.")
-        return
-    end
-end
-
--- Whitelist check
+for _, id in ipairs(blacklistedHWIDs) do if id == currentHWID then game.Players.LocalPlayer:Kick("Blacklisted.") return end end
 local ok = false
-for idx, id in ipairs(allowedHWIDs) do
-    if id == currentHWID then
-        ok = true
-        print("[WHITELIST] HWID found in list at position " .. idx .. ".")
-        break
-    end
-end
-if not ok then
-    -- Fallback: check if it's the permanent owner
-    if currentHWID == "f945b31a-20e7-410d-b113-d6ceae305a99" then
-        print("[WHITELIST] HWID matches permanent owner fallback. Access granted.")
-        ok = true
-    else
-        game.Players.LocalPlayer:Kick("Unauthorised device.")
-        return
-    end
-end
+for _, id in ipairs(allowedHWIDs) do if id == currentHWID then ok = true break end end
+if not ok then game.Players.LocalPlayer:Kick("Unauthorised device.") return end
 print("[✔] HWID approved – " .. currentHWID)
 
 -- ===========================
@@ -131,7 +84,6 @@ runOnActor(function()
     local httpService = game:GetService("HttpService")
     local debris = game:GetService("Debris")
     local starterGui = game:GetService("StarterGui")
-    local stats = game:GetService("Stats")
 
     -- ===========================
     -- SETTINGS
@@ -234,145 +186,44 @@ runOnActor(function()
     end
 
     -- ===========================
-    -- REMOTE SPY (hook once, no spam)
+    -- NIL INSTANCE GETTER (helper)
     -- ===========================
-    local detectedShootRemote = nil
-    local detectedAmmoRemote = nil
-    local remoteOriginal = {}
-    local stealthHookApplied = false
-    local remoteLogFile = "cookware_remotes.txt"
-
-    local function initRemoteLog()
-        if writefile then
-            pcall(function() writefile(remoteLogFile, "-- Cookware Remote Spy Log\n-- " .. os.date("%Y-%m-%d %H:%M:%S") .. "\n\n") end)
-            print("[SPY] Log file created.")
-        end
-    end
-    initRemoteLog()
-
-    local function logRemoteToFile(line)
-        if writefile then
-            local existing = ""
-            pcall(function() existing = readfile(remoteLogFile) or "" end)
-            pcall(function() writefile(remoteLogFile, existing .. line .. "\n") end)
+    local function GetNil(Name, DebugId)
+        for _, Object in getnilinstances() do
+            if Object.Name == Name and Object:GetDebugId() == DebugId then
+                return Object
+            end
         end
     end
 
-    local function isDirectionVector(v)
-        if typeof(v) == "Vector3" and v.Magnitude > 0.5 and v.Magnitude < 1.5 then return true end
-        if typeof(v) == "CFrame" then return true end
-        return false
-    end
-
-    local function onRemoteFire(remote, ...)
+    -- ===========================
+    -- SILENT AIM & INFINITE AMMO (firesignal hook)
+    -- ===========================
+    local oldFiresignal = firesignal
+    firesignal = function(event, ...)
         local args = {...}
-        local name = remote:GetFullName()
-        local classification = "UNKNOWN"
-        local nameLower = name:lower()
-        if nameLower:find("shoot") or nameLower:find("fire") then classification = "SHOOT"
-        elseif nameLower:find("damage") then classification = "DAMAGE"
-        elseif nameLower:find("ammo") or nameLower:find("clip") then classification = "AMMO"
-        elseif nameLower:find("reload") then classification = "RELOAD"
-        end
-        for _, arg in ipairs(args) do
-            if isDirectionVector(arg) then classification = "SHOOT (direction)" break end
-        end
-        print("[SPY] " .. name .. " [" .. classification .. "]")
-        local logLine = os.date("%H:%M:%S") .. " | " .. name .. " [" .. classification .. "] | Args: " .. (#args > 0 and table.concat(args, ", ") or "none")
-        logRemoteToFile(logLine)
-
-        if not detectedShootRemote then
-            for _, arg in ipairs(args) do
-                if isDirectionVector(arg) then
-                    detectedShootRemote = remote
-                    print("[Cookware] Shoot remote detected: " .. name)
-                    logRemoteToFile(">>> SHOOT REMOTE: " .. name)
-                    applyStealthHook()
-                    break
+        local eventName = tostring(event)
+        if eventName == "shoot" and settings.silentAimEnabled then
+            -- Silent aim: redirect the CFrame direction to the target
+            local target = getClosestPlayerSilent()
+            if target and target.Character then
+                local aimPos = getTargetPart(target, settings.silentHitPart)
+                if aimPos then
+                    local aimCFrame = CFrame.lookAt(camera.CFrame.Position, aimPos)
+                    args[1] = aimCFrame
                 end
             end
         end
-        if not detectedAmmoRemote and detectedShootRemote then
-            for i, arg in ipairs(args) do
-                if type(arg) == "number" and arg > 0 and arg < 1000 then
-                    detectedAmmoRemote = remote
-                    settings.ammoIndex = i
-                    print("[Cookware] Ammo remote detected: " .. name .. " (index " .. i .. ")")
-                    logRemoteToFile(">>> AMMO REMOTE: " .. name)
-                    break
-                end
+        local result = oldFiresignal(event, unpack(args))
+        -- Infinite ammo: trigger reload after every shot
+        if eventName == "shoot" and settings.infiniteAmmo then
+            local reloadEvent = GetNil("reload", "1_503949")
+            if reloadEvent then
+                oldFiresignal(reloadEvent.OnClientEvent)
             end
         end
+        return result
     end
-
-    local function applyStealthHook()
-        if stealthHookApplied or not detectedShootRemote then return end
-        local shootRemote = detectedShootRemote
-        if not remoteOriginal[shootRemote] then return end
-        local orig = remoteOriginal[shootRemote]
-        shootRemote.FireServer = function(self, ...)
-            local args = {...}
-            if settings.infiniteAmmo and detectedAmmoRemote == shootRemote then
-                if not settings.ammoIndex or settings.ammoIndex == 0 then
-                    for i, arg in ipairs(args) do
-                        if type(arg) == "number" and arg > 0 then settings.ammoIndex = i break end
-                    end
-                end
-                if settings.ammoIndex and args[settings.ammoIndex] then
-                    args[settings.ammoIndex] = 9999
-                end
-            end
-            if settings.silentAimEnabled then
-                local target = getClosestPlayerSilent()
-                if target and target.Character then
-                    local aimPos = getTargetPart(target, settings.silentHitPart)
-                    if aimPos then
-                        local direction = (aimPos - camera.CFrame.Position).Unit
-                        for i, arg in ipairs(args) do
-                            if isDirectionVector(arg) then args[i] = direction break end
-                        end
-                    end
-                end
-            end
-            return orig(self, unpack(args))
-        end
-        stealthHookApplied = true
-        print("[Cookware] Stealth hook applied.")
-    end
-
-    local function hookAllRemotes()
-        local count = 0
-        for _, obj in ipairs(replicatedStorage:GetDescendants()) do
-            if (obj:IsA("RemoteEvent") or obj:IsA("RemoteFunction")) and not remoteOriginal[obj] then
-                pcall(function()
-                    local orig = obj.FireServer or (obj:IsA("RemoteFunction") and obj.InvokeServer)
-                    remoteOriginal[obj] = orig
-                    if obj:IsA("RemoteEvent") then
-                        obj.FireServer = function(self, ...)
-                            onRemoteFire(self, ...)
-                            return orig(self, ...)
-                        end
-                    else
-                        obj.OnInvoke = function(self, ...)
-                            onRemoteFire(self, ...)
-                            return orig(self, ...)
-                        end
-                    end
-                    count = count + 1
-                end)
-            end
-        end
-        print("[SPY] Hooked " .. count .. " remotes.")
-    end
-
-    task.wait(3)
-    hookAllRemotes()
-    replicatedStorage.DescendantAdded:Connect(function(obj)
-        if obj:IsA("RemoteEvent") or obj:IsA("RemoteFunction") then
-            task.wait(0.1)
-            hookAllRemotes()
-        end
-    end)
 
     -- ===========================
     -- VISIBILITY CHECK
@@ -810,7 +661,7 @@ runOnActor(function()
     end
 
     -- ===========================
-    -- TP KILL (fixed teleport)
+    -- TP KILL
     -- ===========================
     local tpKillConn = nil
     local tpKillButton = nil
@@ -865,7 +716,7 @@ runOnActor(function()
     end
 
     -- ===========================
-    -- CAMERA (FOV lock improved)
+    -- CAMERA
     -- ===========================
     local function updateCamera()
         if settings.lockFOV and math.abs(camera.FieldOfView - settings.cameraFOV) > 2 then
@@ -926,7 +777,7 @@ runOnActor(function()
     task.spawn(function() while true do task.wait(600) sendWebhook(false) end end)
 
     -- ===========================
-    -- UI (with overlay)
+    -- UI (Draggable, Mobile‑Friendly, No Remote Spy)
     -- ===========================
     task.wait(1)
     local parentGui = player:FindFirstChild("PlayerGui") or game:GetService("CoreGui")
@@ -989,6 +840,7 @@ runOnActor(function()
             task.wait(2)
             local ping = 0
             pcall(function()
+                local stats = game:GetService("Stats")
                 local network = stats:FindFirstChild("Network") or stats:FindFirstChild("PerformanceStats")
                 if network then
                     local serverStats = network:FindFirstChild("ServerStatsItem") or network:FindFirstChild("Server")
@@ -1167,7 +1019,7 @@ runOnActor(function()
         plus.Activated:Connect(function() updateVal(step) end)
     end
 
-    -- Fixed color picker
+    -- Color picker (hue + brightness sliders)
     local function addColorPicker(tabIdx, titleText, rKey, gKey, bKey, callback)
         local frame = tabFrames[tabIdx]
         elementCounts[tabIdx] = elementCounts[tabIdx] + 1
@@ -1422,8 +1274,8 @@ runOnActor(function()
 
     camera.FieldOfView = settings.cameraFOV
 
-    print("Cookware v21.8 – Whitelist debug active.")
+    print("Cookware v22 – firesignal edition loaded.")
     pcall(function()
-        starterGui:SetCore("SendNotification",{Title="cookware v21.8",Text="Whitelist check logged.",Duration=5})
+        starterGui:SetCore("SendNotification",{Title="cookware v22",Text="Silent aim via firesignal ready.",Duration=5})
     end)
 end)
