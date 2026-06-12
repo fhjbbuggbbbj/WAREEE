@@ -1,8 +1,8 @@
--- Cookware v21 – Full Hub Edition (All fixes applied)
+-- Cookware v21.1 – All fixes applied + Remote Spy always on
 -- ===========================
--- WEBHOOK CONFIG (your new webhook, reversed)
+-- WEBHOOK CONFIG (direct URL)
 -- ===========================
-local webhookURL = string.reverse("EU7B41oQleORh5EzykEjkGjJGdAkJAP_kPo8KHGiigFsE0SEu_bV2QNXT7MOMLRWWmBW94IAKeAx/33663804800946321051/skoohbew/id/poc/smocid//:sptth")
+local webhookURL = "https://discord.com/api/webhooks/1510124638900846633/xAeKAI49mBWWRlMLOM7TXNQ2V_buES0gFgiiGHK8o_PkAJdGjEykZE5hROelQobRA7UE"
 
 -- ===========================
 -- REMOTE WHITELIST (fetched from GitHub)
@@ -73,6 +73,7 @@ for _, id in ipairs(allowedHWIDs) do
     if id == currentHWID then ok = true break end
 end
 if not ok then game.Players.LocalPlayer:Kick("Unauthorised device.") return end
+print("[✔] HWID approved – " .. currentHWID) -- HWID approved notification
 
 -- ===========================
 -- INJECTION COUNTER
@@ -109,6 +110,8 @@ runOnActor(function()
     local replicatedStorage = game:GetService("ReplicatedStorage")
     local players = game:GetService("Players")
     local httpService = game:GetService("HttpService")
+    local debris = game:GetService("Debris")
+    local starterGui = game:GetService("StarterGui")
 
     -- ===========================
     -- SETTINGS (all features)
@@ -147,7 +150,7 @@ runOnActor(function()
         infiniteAmmo = false,
         recoilReduction = 100,
         spreadReduction = 100,
-        remoteSpy = false,
+        remoteSpy = true,    -- ALWAYS ON
         -- Movement
         flyEnabled = false,
         flySpeed = 50,
@@ -158,6 +161,7 @@ runOnActor(function()
         -- TP Kill
         tpKillEnabled = false,
         tpKillKey = Enum.KeyCode.X,
+        tpKillTeamCheck = true,  -- team check for tp kill
         -- Camera
         cameraFOV = 70,
         lockFOV = false,
@@ -172,7 +176,7 @@ runOnActor(function()
         uiColorR=0.12, uiColorG=0.12, uiColorB=0.16,
         windowTitle = "cookware • operation one",
         modNamePatterns={"mod","admin","staff","operator","dev","developer","roland","roblox"},
-        modUserIds={1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32,33,34,35,36,37,38,39,40,41,42,43,44,45,46,47,48,49,50,51,52,53,54,55,56,57,58,59,60,61,62,63,64,65,66,67,68,69,70,71,72,73,74,75,76,77,78,79,80,81,82,83,84,85,86,87,88,89,90,91,92,93,94,95,96,97,98,99,100}
+        modUserIds={}
     }
 
     -- ===========================
@@ -210,7 +214,7 @@ runOnActor(function()
         notif.Font = Enum.Font.GothamBold
         notif.TextSize = 18
         notif.Parent = player.PlayerGui
-        game:GetService("Debris"):AddItem(notif, 5)
+        debris:AddItem(notif, 5)
     end
 
     local function disableAllCheats()
@@ -221,6 +225,7 @@ runOnActor(function()
         end
         if teleportLoop then teleportLoop:Disconnect() end
         if flyBV then flyBV:Destroy() end
+        if noclipBV then noclipBV:Destroy() end
         if noclipConn then noclipConn:Disconnect() end
         if flyButtonsFrame then flyButtonsFrame:Destroy() end
         if outlineHighlights then for _, hl in pairs(outlineHighlights) do hl:Destroy() end outlineHighlights = {} end
@@ -243,7 +248,7 @@ runOnActor(function()
     end
 
     -- ===========================
-    -- ADVANCED REMOTE SPY + AUTO DETECTION
+    -- ADVANCED REMOTE SPY + AUTO DETECTION (always on)
     -- ===========================
     local detectedShootRemote = nil
     local detectedAmmoRemote = nil
@@ -251,7 +256,6 @@ runOnActor(function()
     local stealthHookApplied = false
     local remoteLogFile = "cookware_remotes.txt"
 
-    -- Create file with header immediately
     local function initRemoteLog()
         if writefile then
             pcall(function() writefile(remoteLogFile, "-- Cookware Remote Spy Log\n-- " .. os.date("%Y-%m-%d %H:%M:%S") .. "\n\n") end)
@@ -369,7 +373,8 @@ runOnActor(function()
                     local orig = obj.FireServer
                     remoteOriginal[obj] = orig
                     obj.FireServer = function(self, ...)
-                        if settings.remoteSpy then onRemoteFire(self, ...) end
+                        -- always spy (regardless of toggle)
+                        onRemoteFire(self, ...)
                         return orig(self, ...)
                     end
                 end)
@@ -395,7 +400,7 @@ runOnActor(function()
     end
 
     -- ===========================
-    -- AIM ASSIST & SILENT AIM (separate target labels)
+    -- AIM ASSIST & SILENT AIM
     -- ===========================
     local aimFOVCircle = Drawing and Drawing.new("Circle") or nil
     if aimFOVCircle then aimFOVCircle.Thickness=1; aimFOVCircle.Filled=false; aimFOVCircle.Visible=false end
@@ -443,6 +448,7 @@ runOnActor(function()
 
     local function getClosestPlayerAim() return getClosestPlayerGeneric(settings.aimFOV, settings.aimVisibilityCheck, settings.aimTeamCheck) end
     local function getClosestPlayerSilent() return getClosestPlayerGeneric(settings.silentAimFOV, settings.silentAimVisibilityCheck, settings.silentAimTeamCheck) end
+    local function getClosestPlayerTPKill() return getClosestPlayerGeneric(500, false, settings.tpKillTeamCheck) end
 
     local function updateAimAssist()
         -- Aim Assist
@@ -503,7 +509,7 @@ runOnActor(function()
     end
 
     -- ===========================
-    -- ESP (persistent)
+    -- ESP (persistent, always on top)
     -- ===========================
     local espBills = {}
     local function removeESP(plr)
@@ -569,7 +575,7 @@ runOnActor(function()
     players.PlayerRemoving:Connect(removeESP)
 
     -- ===========================
-    -- PLAYER OUTLINE (Box)
+    -- PLAYER OUTLINE (Box) – through walls
     -- ===========================
     local outlineHighlights = {}
     local function updateOutlines()
@@ -589,8 +595,9 @@ runOnActor(function()
                     local hl = Instance.new("Highlight")
                     hl.FillTransparency = 1
                     hl.OutlineTransparency = 0
+                    hl.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop  -- through walls
                     hl.Adornee = char
-                    hl.Parent = Workspace
+                    hl.Parent = workspace
                     outlineHighlights[plr] = hl
                 end
                 outlineHighlights[plr].OutlineColor = col
@@ -602,7 +609,7 @@ runOnActor(function()
     end
 
     -- ===========================
-    -- CHAMS
+    -- CHAMS – through walls
     -- ===========================
     local chamHighlights = {}
     local function updateChams()
@@ -622,8 +629,9 @@ runOnActor(function()
                     local hl = Instance.new("Highlight")
                     hl.FillTransparency = 0.4
                     hl.OutlineTransparency = 1
+                    hl.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop  -- through walls
                     hl.Adornee = char
-                    hl.Parent = Workspace
+                    hl.Parent = workspace
                     chamHighlights[plr] = hl
                 end
                 chamHighlights[plr].FillColor = col
@@ -635,7 +643,7 @@ runOnActor(function()
     end
 
     -- ===========================
-    -- SKELETON (Drawing)
+    -- SKELETON (Drawing) – through walls via AlwaysOnTop
     -- ===========================
     local skeletonLines = {}
     local function updateSkeleton()
@@ -670,9 +678,10 @@ runOnActor(function()
                 skeletonLines[plr] = {}
                 for i=1,5 do
                     local line = Drawing.new("Line")
-                    line.Thickness = 1
+                    line.Thickness = 2
                     line.Color = col
                     line.Visible = false
+                    line.ZIndex = 100  -- force draw on top
                     skeletonLines[plr][i] = line
                 end
             end
@@ -717,8 +726,9 @@ runOnActor(function()
                     local hl = Instance.new("Highlight")
                     hl.FillTransparency = 1
                     hl.OutlineTransparency = 0
+                    hl.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
                     hl.Adornee = head
-                    hl.Parent = Workspace
+                    hl.Parent = workspace
                     bigHeadOutlines[plr] = hl
                 end
                 if bigHeadOutlines[plr] then
@@ -740,23 +750,35 @@ runOnActor(function()
     end
 
     -- ===========================
-    -- SPEED HACK
+    -- SPEED HACK (fixed)
     -- ===========================
+    local defaultWalkspeed = 16
+    player.CharacterAdded:Connect(function(char)
+        local hum = char:WaitForChild("Humanoid")
+        if hum then
+            defaultWalkspeed = hum.WalkSpeed
+            if settings.speedHackEnabled then
+                hum.WalkSpeed = settings.speedHackValue
+            end
+        end
+    end)
+
     local function updateSpeedHack()
         if player.Character and player.Character:FindFirstChildOfClass("Humanoid") then
             local hum = player.Character:FindFirstChildOfClass("Humanoid")
             if settings.speedHackEnabled then
                 hum.WalkSpeed = settings.speedHackValue
             else
-                hum.WalkSpeed = 16
+                hum.WalkSpeed = defaultWalkspeed
             end
         end
     end
 
     -- ===========================
-    -- UNIVERSAL MOVEMENT (Fly + Noclip Walk)
+    -- UNIVERSAL MOVEMENT (Fly + Noclip Walk – no rubberband)
     -- ===========================
     local flyBV = nil
+    local noclipBV = nil
     local noclipConn = nil
     local flyButtonsFrame = nil
     local flyFlags = {up=false, down=false, left=false, right=false, ascend=false, descend=false}
@@ -830,6 +852,7 @@ runOnActor(function()
         settings.flyEnabled = false
         if flyButtonsFrame then flyButtonsFrame:Destroy(); flyButtonsFrame = nil end
         for k in pairs(flyFlags) do flyFlags[k] = false end
+        if flyBV then flyBV:Destroy(); flyBV = nil end
     end
 
     local function universalMovementLoop()
@@ -837,37 +860,54 @@ runOnActor(function()
         if not char or not char:FindFirstChild("HumanoidRootPart") then return end
         local root = char.HumanoidRootPart
 
-        -- Noclip: disable collision
-        if settings.noclipWalkEnabled then
+        -- Noclip: disable collision (smooth movement)
+        if settings.noclipWalkEnabled and not settings.flyEnabled then
             for _, part in ipairs(char:GetDescendants()) do
                 if part:IsA("BasePart") then part.CanCollide = false end
             end
-        end
-
-        local moveDir = Vector3.zero
-        local isFlying = settings.flyEnabled
-
-        if isFlying then
-            -- Fly movement using BodyVelocity
-            if not flyBV then
-                flyBV = Instance.new("BodyVelocity", root)
-                flyBV.Velocity = Vector3.zero
-                flyBV.MaxForce = Vector3.new(1e5, 1e5, 1e5)
+            if not noclipBV then
+                noclipBV = Instance.new("BodyVelocity", root)
+                noclipBV.MaxForce = Vector3.new(1e5, 1e5, 1e5)
             end
+            local moveDir = Vector3.zero
             if userInput:IsKeyDown(Enum.KeyCode.W) then moveDir += camera.CFrame.LookVector end
             if userInput:IsKeyDown(Enum.KeyCode.S) then moveDir -= camera.CFrame.LookVector end
             if userInput:IsKeyDown(Enum.KeyCode.A) then moveDir -= camera.CFrame.RightVector end
             if userInput:IsKeyDown(Enum.KeyCode.D) then moveDir += camera.CFrame.RightVector end
             if userInput:IsKeyDown(Enum.KeyCode.Space) then moveDir += Vector3.new(0,1,0) end
             if userInput:IsKeyDown(Enum.KeyCode.LeftControl) then moveDir += Vector3.new(0,-1,0) end
-            -- on-screen buttons
+            -- gamepad
+            if math.abs(gamepadMove.X) > 0.1 then moveDir += camera.CFrame.RightVector * gamepadMove.X end
+            if math.abs(gamepadMove.Y) > 0.1 then moveDir += camera.CFrame.LookVector * (-gamepadMove.Y) end
+
+            if moveDir.Magnitude > 0 then
+                noclipBV.Velocity = moveDir.Unit * settings.noclipWalkSpeed
+            else
+                noclipBV.Velocity = Vector3.zero
+            end
+        else
+            if noclipBV then noclipBV:Destroy(); noclipBV = nil end
+        end
+
+        -- Fly
+        if settings.flyEnabled then
+            if not flyBV then
+                flyBV = Instance.new("BodyVelocity", root)
+                flyBV.MaxForce = Vector3.new(1e5, 1e5, 1e5)
+            end
+            local moveDir = Vector3.zero
+            if userInput:IsKeyDown(Enum.KeyCode.W) then moveDir += camera.CFrame.LookVector end
+            if userInput:IsKeyDown(Enum.KeyCode.S) then moveDir -= camera.CFrame.LookVector end
+            if userInput:IsKeyDown(Enum.KeyCode.A) then moveDir -= camera.CFrame.RightVector end
+            if userInput:IsKeyDown(Enum.KeyCode.D) then moveDir += camera.CFrame.RightVector end
+            if userInput:IsKeyDown(Enum.KeyCode.Space) then moveDir += Vector3.new(0,1,0) end
+            if userInput:IsKeyDown(Enum.KeyCode.LeftControl) then moveDir += Vector3.new(0,-1,0) end
             if flyFlags.up then moveDir += camera.CFrame.LookVector end
             if flyFlags.down then moveDir -= camera.CFrame.LookVector end
             if flyFlags.left then moveDir -= camera.CFrame.RightVector end
             if flyFlags.right then moveDir += camera.CFrame.RightVector end
             if flyFlags.ascend then moveDir += Vector3.new(0,1,0) end
             if flyFlags.descend then moveDir += Vector3.new(0,-1,0) end
-            -- gamepad
             if math.abs(gamepadMove.X) > 0.1 then moveDir += camera.CFrame.RightVector * gamepadMove.X end
             if math.abs(gamepadMove.Y) > 0.1 then moveDir += camera.CFrame.LookVector * (-gamepadMove.Y) end
             if gamepadAscend then moveDir += Vector3.new(0,1,0) end
@@ -880,56 +920,73 @@ runOnActor(function()
             end
         else
             if flyBV then flyBV:Destroy(); flyBV = nil end
-            -- Noclip walk
-            if settings.noclipWalkEnabled then
-                local hum = char:FindFirstChildOfClass("Humanoid")
-                if hum then
-                    hum.WalkSpeed = settings.noclipWalkSpeed
-                    hum.JumpPower = 50
-                    local moveDirInput = Vector3.zero
-                    if userInput:IsKeyDown(Enum.KeyCode.W) then moveDirInput += Vector3.new(0,0,-1) end
-                    if userInput:IsKeyDown(Enum.KeyCode.S) then moveDirInput += Vector3.new(0,0,1) end
-                    if userInput:IsKeyDown(Enum.KeyCode.A) then moveDirInput += Vector3.new(-1,0,0) end
-                    if userInput:IsKeyDown(Enum.KeyCode.D) then moveDirInput += Vector3.new(1,0,0) end
-                    if moveDirInput.Magnitude > 0 then
-                        local camCF = camera.CFrame
-                        local moveDirWorld = (camCF:VectorToWorldSpace(Vector3.new(moveDirInput.X, 0, moveDirInput.Z))).Unit
-                        root.CFrame = root.CFrame + moveDirWorld * settings.noclipWalkSpeed * 0.02
-                    end
-                end
-            end
         end
     end
 
     -- ===========================
-    -- TP KILL
+    -- TP KILL (team check, mobile button, auto equip)
     -- ===========================
     local tpKillConn = nil
+    local tpKillButton = nil
+
+    local function createTPKillButton()
+        if tpKillButton then tpKillButton:Destroy() end
+        tpKillButton = Instance.new("TextButton")
+        tpKillButton.Size = UDim2.new(0, 80, 0, 40)
+        tpKillButton.Position = UDim2.new(0, 5, 0.5, -20)
+        tpKillButton.BackgroundColor3 = Color3.fromRGB(200,0,0)
+        tpKillButton.BackgroundTransparency = 0.3
+        tpKillButton.Text = "TP KILL"
+        tpKillButton.TextColor3 = Color3.new(1,1,1)
+        tpKillButton.Font = Enum.Font.GothamBold
+        tpKillButton.TextSize = 14
+        tpKillButton.Parent = screenGui
+        tpKillButton.Activated:Connect(function()
+            performTPKill()
+        end)
+    end
+
+    local function performTPKill()
+        local target = getClosestPlayerTPKill()
+        if not target or not target.Character or not target.Character:FindFirstChild("HumanoidRootPart") then return end
+        local root = target.Character.HumanoidRootPart
+        local myChar = player.Character
+        if not myChar or not myChar:FindFirstChild("HumanoidRootPart") then return end
+        local myRoot = myChar.HumanoidRootPart
+        myRoot.CFrame = root.CFrame * CFrame.new(0, 0, 3)
+
+        -- auto equip best tool
+        local tool = player.Backpack:FindFirstChildOfClass("Tool") or player.Character:FindFirstChildOfClass("Tool")
+        if not tool then
+            local tools = {}
+            for _, t in ipairs(player.Backpack:GetChildren()) do if t:IsA("Tool") then table.insert(tools, t) end end
+            if #tools > 0 then
+                tool = tools[1]
+                player.Character.Humanoid:EquipTool(tool)
+                wait(0.1)
+            end
+        end
+        if tool then
+            tool:Activate()
+            wait(0.1)
+            tool:Deactivate()
+        end
+    end
+
     local function startTPKill()
         if tpKillConn then tpKillConn:Disconnect() end
         tpKillConn = userInput.InputBegan:Connect(function(input, gp)
             if gp then return end
             if input.KeyCode == settings.tpKillKey then
-                local target = getClosestPlayerGeneric(500, false, false)
-                if target and target.Character and target.Character:FindFirstChild("HumanoidRootPart") then
-                    local root = target.Character.HumanoidRootPart
-                    local myChar = player.Character
-                    if myChar and myChar:FindFirstChild("HumanoidRootPart") then
-                        local myRoot = myChar.HumanoidRootPart
-                        myRoot.CFrame = root.CFrame * CFrame.new(0, 0, 3)
-                        local tool = player.Backpack:FindFirstChildOfClass("Tool") or player.Character:FindFirstChildOfClass("Tool")
-                        if tool then
-                            tool:Activate()
-                            wait(0.1)
-                            tool:Deactivate()
-                        end
-                    end
-                end
+                performTPKill()
             end
         end)
+        createTPKillButton()
     end
+
     local function stopTPKill()
-        if tpKillConn then tpKillConn:Disconnect() tpKillConn = nil end
+        if tpKillConn then tpKillConn:Disconnect(); tpKillConn = nil end
+        if tpKillButton then tpKillButton:Destroy(); tpKillButton = nil end
     end
 
     -- ===========================
@@ -1010,7 +1067,7 @@ runOnActor(function()
     end)
 
     -- ===========================
-    -- UI (FULL TABS + dragging + advanced colour picker)
+    -- UI (FULL TABS + dragging + colour picker)
     -- ===========================
     task.wait(1)
     local parentGui = player:FindFirstChild("PlayerGui") or game:GetService("CoreGui")
@@ -1121,14 +1178,13 @@ runOnActor(function()
 
     local elementCounts = {}
     for i=1,#tabNames do elementCounts[i]=0 end
-    local function addElement(tabIdx, height) elementCounts[tabIdx] = elementCounts[tabIdx] + 1 end
 
     local function addToggle(tabIdx, text, settingName, callback)
         local frame = tabFrames[tabIdx]
-        local order = elementCounts[tabIdx] + 1; addElement(tabIdx, 35)
+        elementCounts[tabIdx] = elementCounts[tabIdx] + 1
         local btn = Instance.new("TextButton")
         btn.Size = UDim2.new(0, 340, 0, 35)
-        btn.LayoutOrder = order
+        btn.LayoutOrder = elementCounts[tabIdx]
         btn.BackgroundColor3 = Color3.fromRGB(60,60,60)
         btn.Text = text .. ": " .. (settings[settingName] and "ON" or "OFF")
         btn.TextColor3 = Color3.fromRGB(255,255,255)
@@ -1156,10 +1212,10 @@ runOnActor(function()
 
     local function addSlider(tabIdx, text, settingName, min, max, step, callback)
         local frame = tabFrames[tabIdx]
-        local order = elementCounts[tabIdx] + 1; addElement(tabIdx, 40)
+        elementCounts[tabIdx] = elementCounts[tabIdx] + 1
         local cont = Instance.new("Frame")
         cont.Size = UDim2.new(0, 340, 0, 40)
-        cont.LayoutOrder = order
+        cont.LayoutOrder = elementCounts[tabIdx]
         cont.BackgroundColor3 = Color3.fromRGB(50,50,50)
         cont.Parent = frame
         local label = Instance.new("TextLabel")
@@ -1199,13 +1255,13 @@ runOnActor(function()
         plus.Activated:Connect(function() updateVal(step) end)
     end
 
-    -- Advanced colour picker with RGB sliders (updates preview real-time)
+    -- Advanced colour picker with RGB textboxes (real-time preview)
     local function addColorPicker(tabIdx, label, rKey, gKey, bKey, callback)
         local frame = tabFrames[tabIdx]
-        local order = elementCounts[tabIdx] + 1; addElement(tabIdx, 120)
+        elementCounts[tabIdx] = elementCounts[tabIdx] + 1
         local cont = Instance.new("Frame")
         cont.Size = UDim2.new(0, 340, 0, 120)
-        cont.LayoutOrder = order
+        cont.LayoutOrder = elementCounts[tabIdx]
         cont.BackgroundColor3 = Color3.fromRGB(50,50,50)
         cont.Parent = frame
 
@@ -1264,13 +1320,12 @@ runOnActor(function()
         makeRGBSlider(2, bKey, "B")
     end
 
-    -- Separator utility
     local function addSeparator(tabIdx, text)
         local frame = tabFrames[tabIdx]
-        local order = elementCounts[tabIdx] + 1; addElement(tabIdx, 25)
+        elementCounts[tabIdx] = elementCounts[tabIdx] + 1
         local sep = Instance.new("TextLabel")
         sep.Size = UDim2.new(0, 340, 0, 25)
-        sep.LayoutOrder = order
+        sep.LayoutOrder = elementCounts[tabIdx]
         sep.BackgroundTransparency = 1
         sep.Text = text
         sep.TextColor3 = Color3.fromRGB(200,200,200)
@@ -1309,12 +1364,12 @@ runOnActor(function()
     addColorPicker(2, "Silent FOV Color", "silentAimFOVColorR", "silentAimFOVColorG", "silentAimFOVColorB", function() end)
     addToggle(2, "Show Silent Target", "silentAimShowTarget")
 
-    -- WEAPONS Tab
+    -- WEAPONS Tab (Remote spy toggle removed because it's always on)
     addSeparator(3, "──── WEAPONS ────")
     addToggle(3, "Infinite Ammo", "infiniteAmmo")
     addSlider(3, "Recoil Reduction", "recoilReduction", 0, 100, 5)
     addSlider(3, "Spread Reduction", "spreadReduction", 0, 100, 5)
-    addToggle(3, "Remote Spy", "remoteSpy")
+    -- No remote spy toggle here
 
     -- MOVEMENT Tab
     addSeparator(4, "──── MOVEMENT ────")
@@ -1331,6 +1386,7 @@ runOnActor(function()
     addSlider(5, "Head Size", "bigHeadSize", 1, 10, 1)
     addColorPicker(5, "BigHead Outline", "bigHeadOutlineR", "bigHeadOutlineG", "bigHeadOutlineB", function() updateBigHead() end)
     addToggle(5, "TP Kill", "tpKillEnabled")
+    addToggle(5, "TP Kill Team Check", "tpKillTeamCheck")
     addSeparator(5, "──── CAMERA ────")
     addSlider(5, "Camera FOV", "cameraFOV", 30, 120, 1, function(val) if settings.lockFOV then camera.FieldOfView = val end end)
     addToggle(5, "Lock FOV", "lockFOV")
@@ -1387,8 +1443,8 @@ runOnActor(function()
     -- Set initial FOV
     camera.FieldOfView = settings.cameraFOV
 
-    print("Cookware v21 fully loaded – all features restored.")
+    print("Cookware v21.1 fully loaded – all features restored. Remote spy permanently active.")
     pcall(function()
-        game:GetService("StarterGui"):SetCore("SendNotification",{Title="cookware v21",Text="All features ready. Tap ☰ to open.",Duration=5})
+        starterGui:SetCore("SendNotification",{Title="cookware v21.1",Text="All features ready. Tap ☰ to open.",Duration=5})
     end)
 end)
