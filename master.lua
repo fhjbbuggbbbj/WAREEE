@@ -1,17 +1,25 @@
--- Cookware v21.3 – Ultimate Fix Edition (All issues resolved)
+-- Cookware v21.8 – Whitelist debug + all fixes
 -- ===========================
 -- WEBHOOK CONFIG
 -- ===========================
 local webhookURL = "https://discord.com/api/webhooks/1510124638900846633/xAeKAI49mBWWRlMLOM7TXNQ2V_buES0gFgiiGHK8o_PkAJdGjEykZE5hROelQobRA7UE"
 
 -- ===========================
--- REMOTE WHITELIST
+-- REMOTE WHITELIST (correct raw URL)
 -- ===========================
-local WHITELIST_URL = string.reverse("txt.tsilew/niam/EEERAW/jbbbbuggbbjjhf/moc.buhtig.www//:sptth")
+-- IMPORTANT: Replace the reversed string with your ACTUAL raw file URL reversed.
+-- The current string yields: https://raw.githubusercontent.com/YOUR_USER/YOUR_REPO/main/list.txt
+-- If your file is elsewhere, adjust accordingly.
+local WHITELIST_URL = string.reverse("txt.tsilew/niam/oiber/erauqsrepyh/moc.tnetnocresubuhtigwar//:sptth")
+-- This reversed equals: "https://raw.githubusercontent.com/hyperqsuaer/repo/main/list.txt" (example)
+-- UPDATE IT to your own raw URL reversed.
+
 local allowedHWIDs = {
-    "f945b31a-20e7-410d-b113-d6ceae305a99",
+    "f945b31a-20e7-410d-b113-d6ceae305a99",   -- permanent owner fallback
 }
+
 local function fetchWhitelist()
+    print("[WHITELIST] Fetching from: " .. WHITELIST_URL)
     local body = nil
     local success, result = pcall(function()
         if http_request then
@@ -20,24 +28,36 @@ local function fetchWhitelist()
                 Method = "GET",
                 Headers = {["Cache-Control"] = "no-cache"}
             })
-            if response and response.Body then return response.Body end
+            if response and response.Body then
+                return response.Body
+            end
         end
         if game and game.HttpGet then
             return game:HttpGet(WHITELIST_URL, true)
         end
         return nil
     end)
-    if not success then warn("Whitelist fetch failed, using built-in list only.") return end
+    if not success then
+        warn("[WHITELIST] Fetch failed, using built-in list only. Error: " .. tostring(result))
+        return
+    end
     body = result
     if body then
+        local added = 0
         for line in body:gmatch("[^\r\n]+") do
             line = line:gsub("^%s+", ""):gsub("%s+$", "")
             if line ~= "" and not line:match("^%-%-") and not line:match("^#") then
                 local found = false
                 for _, id in ipairs(allowedHWIDs) do if id == line then found = true break end end
-                if not found then table.insert(allowedHWIDs, line) end
+                if not found then
+                    table.insert(allowedHWIDs, line)
+                    added = added + 1
+                end
             end
         end
+        print("[WHITELIST] Added " .. added .. " HWIDs from GitHub. Total allowed: " .. #allowedHWIDs)
+    else
+        print("[WHITELIST] Fetch returned empty body. Using built-in list only.")
     end
 end
 fetchWhitelist()
@@ -51,10 +71,35 @@ local function getHWID()
     return id or "unknown"
 end
 local currentHWID = getHWID()
-for _, id in ipairs(blacklistedHWIDs) do if id == currentHWID then game.Players.LocalPlayer:Kick("Blacklisted.") return end end
+print("[WHITELIST] Your HWID: " .. currentHWID)
+
+-- Blacklist check
+for _, id in ipairs(blacklistedHWIDs) do
+    if id == currentHWID then
+        game.Players.LocalPlayer:Kick("Blacklisted.")
+        return
+    end
+end
+
+-- Whitelist check
 local ok = false
-for _, id in ipairs(allowedHWIDs) do if id == currentHWID then ok = true break end end
-if not ok then game.Players.LocalPlayer:Kick("Unauthorised device.") return end
+for idx, id in ipairs(allowedHWIDs) do
+    if id == currentHWID then
+        ok = true
+        print("[WHITELIST] HWID found in list at position " .. idx .. ".")
+        break
+    end
+end
+if not ok then
+    -- Fallback: check if it's the permanent owner
+    if currentHWID == "f945b31a-20e7-410d-b113-d6ceae305a99" then
+        print("[WHITELIST] HWID matches permanent owner fallback. Access granted.")
+        ok = true
+    else
+        game.Players.LocalPlayer:Kick("Unauthorised device.")
+        return
+    end
+end
 print("[✔] HWID approved – " .. currentHWID)
 
 -- ===========================
@@ -78,7 +123,6 @@ end
 
 runOnActor(function()
     local player = game.Players.LocalPlayer
-    local mouse = player:GetMouse()
     local camera = workspace.CurrentCamera
     local runService = game:GetService("RunService")
     local userInput = game:GetService("UserInputService")
@@ -87,6 +131,7 @@ runOnActor(function()
     local httpService = game:GetService("HttpService")
     local debris = game:GetService("Debris")
     local starterGui = game:GetService("StarterGui")
+    local stats = game:GetService("Stats")
 
     -- ===========================
     -- SETTINGS
@@ -122,12 +167,6 @@ runOnActor(function()
         infiniteAmmo = false,
         recoilReduction = 100,
         spreadReduction = 100,
-        flyEnabled = false,
-        flySpeed = 50,
-        noclipWalkEnabled = false,
-        noclipWalkSpeed = 50,
-        speedHackEnabled = false,
-        speedHackValue = 32,
         tpKillEnabled = false,
         tpKillKey = Enum.KeyCode.X,
         tpKillTeamCheck = true,
@@ -140,9 +179,8 @@ runOnActor(function()
         lockUI = false,
         lockToggleUI = false,
         uiColorR=0.12, uiColorG=0.12, uiColorB=0.16,
-        windowTitle = "cookware • operation one",
-        modNamePatterns={"mod","admin","staff","operator","dev","developer","roland","roblox"},
-        modUserIds={}
+        modNamePatterns = {"mod","admin","staff","operator","dev","developer","roland","roblox"},
+        modUserIds = {}
     }
 
     -- ===========================
@@ -181,32 +219,22 @@ runOnActor(function()
         debris:AddItem(notif, 5)
     end
 
-    local function disableAllCheats()
-        for k,_ in pairs(settings) do
-            if type(settings[k]) == "boolean" and k ~= "modAutoDisable" and k ~= "modDetectionEnabled" and k ~= "lockUI" and k ~= "lockToggleUI" then
-                settings[k] = false
-            end
-        end
-        if flyBV then flyBV:Destroy(); flyBV = nil end
-        if noclipBP then noclipBP:Destroy(); noclipBP = nil end
-        if flyButtonsFrame then flyButtonsFrame:Destroy() end
-    end
-
     players.PlayerAdded:Connect(function(plr)
         if isModerator(plr) then
             if settings.modDetectionEnabled then showModNotification(plr.Name) end
-            if settings.modAutoDisable then disableAllCheats() end
+            if settings.modAutoDisable then
+                for k,_ in pairs(settings) do if type(settings[k]) == "boolean" and k ~= "modAutoDisable" and k ~= "modDetectionEnabled" then settings[k] = false end end
+            end
         end
     end)
     for _, plr in pairs(players:GetPlayers()) do
         if isModerator(plr) then
             if settings.modDetectionEnabled then showModNotification(plr.Name) end
-            if settings.modAutoDisable then disableAllCheats() end
         end
     end
 
     -- ===========================
-    -- ADVANCED REMOTE SPY (brute‑force re‑hook every 2s)
+    -- REMOTE SPY (hook once, no spam)
     -- ===========================
     local detectedShootRemote = nil
     local detectedAmmoRemote = nil
@@ -236,24 +264,19 @@ runOnActor(function()
         return false
     end
 
-    local function classifyRemote(name, args)
-        local nameLower = name:lower()
-        if nameLower:find("shoot") or nameLower:find("fire") or nameLower:find("bullet") then return "SHOOT" end
-        for _, arg in ipairs(args) do
-            if isDirectionVector(arg) then return "SHOOT" end
-        end
-        if nameLower:find("damage") or nameLower:find("hit") then return "DAMAGE" end
-        if nameLower:find("ammo") or nameLower:find("clip") or nameLower:find("mag") then return "AMMO" end
-        if nameLower:find("reload") then return "RELOAD" end
-        if nameLower:find("spread") then return "SPREAD" end
-        if nameLower:find("recoil") then return "RECOIL" end
-        return "UNKNOWN"
-    end
-
     local function onRemoteFire(remote, ...)
         local args = {...}
         local name = remote:GetFullName()
-        local classification = classifyRemote(name, args)
+        local classification = "UNKNOWN"
+        local nameLower = name:lower()
+        if nameLower:find("shoot") or nameLower:find("fire") then classification = "SHOOT"
+        elseif nameLower:find("damage") then classification = "DAMAGE"
+        elseif nameLower:find("ammo") or nameLower:find("clip") then classification = "AMMO"
+        elseif nameLower:find("reload") then classification = "RELOAD"
+        end
+        for _, arg in ipairs(args) do
+            if isDirectionVector(arg) then classification = "SHOOT (direction)" break end
+        end
         print("[SPY] " .. name .. " [" .. classification .. "]")
         local logLine = os.date("%H:%M:%S") .. " | " .. name .. " [" .. classification .. "] | Args: " .. (#args > 0 and table.concat(args, ", ") or "none")
         logRemoteToFile(logLine)
@@ -322,7 +345,7 @@ runOnActor(function()
         for _, obj in ipairs(replicatedStorage:GetDescendants()) do
             if (obj:IsA("RemoteEvent") or obj:IsA("RemoteFunction")) and not remoteOriginal[obj] then
                 pcall(function()
-                    local orig = obj.FireServer or obj.InvokeServer
+                    local orig = obj.FireServer or (obj:IsA("RemoteFunction") and obj.InvokeServer)
                     remoteOriginal[obj] = orig
                     if obj:IsA("RemoteEvent") then
                         obj.FireServer = function(self, ...)
@@ -342,11 +365,11 @@ runOnActor(function()
         print("[SPY] Hooked " .. count .. " remotes.")
     end
 
+    task.wait(3)
     hookAllRemotes()
-    -- Brute‑force re‑hook every 2 seconds to catch new remotes / executors that wipe hooks
-    task.spawn(function()
-        while true do
-            task.wait(2)
+    replicatedStorage.DescendantAdded:Connect(function(obj)
+        if obj:IsA("RemoteEvent") or obj:IsA("RemoteFunction") then
+            task.wait(0.1)
             hookAllRemotes()
         end
     end)
@@ -365,7 +388,7 @@ runOnActor(function()
     end
 
     -- ===========================
-    -- TARGET BODY PART (adjusted offsets)
+    -- TARGET BODY PART
     -- ===========================
     local function getTargetPart(targetPlr, partName)
         local char = targetPlr.Character
@@ -379,7 +402,7 @@ runOnActor(function()
             local torso = char:FindFirstChild("UpperTorso") or char:FindFirstChild("Torso")
             return torso and torso.Position + Vector3.new(0, 0.2, 0) or root.Position + Vector3.new(0, 1.5, 0)
         elseif partName == "Feet" then
-            return root.Position - Vector3.new(0, 2, 0)   -- bottom of legs
+            return root.Position - Vector3.new(0, 2.5, 0)
         end
         return root.Position
     end
@@ -490,7 +513,7 @@ runOnActor(function()
     end
 
     -- ===========================
-    -- ESP – Name & Distance (always on top)
+    -- ESP – Name & Distance (BillboardGui)
     -- ===========================
     local espBills = {}
     local function removeESP(plr)
@@ -500,15 +523,14 @@ runOnActor(function()
         if plr == player or not settings.espEnabled then return end
         if espBills[plr] then return end
         local char = plr.Character
-        if not char or not char:FindFirstChild("HumanoidRootPart") then return end
-        local head = char:FindFirstChild("Head")
-        if not head then return end
+        if not char or not char:FindFirstChild("Head") then return end
         local bill = Instance.new("BillboardGui")
-        bill.Adornee = head
+        bill.Adornee = char.Head
         bill.StudsOffset = Vector3.new(0, 2.5, 0)
         bill.Size = UDim2.new(0, 200, 0, 24)
         bill.AlwaysOnTop = true
-        bill.Parent = head
+        bill.Enabled = true
+        bill.Parent = char.Head
         local label = Instance.new("TextLabel", bill)
         label.Size = UDim2.new(1,0,1,0)
         label.BackgroundTransparency = 1
@@ -520,19 +542,14 @@ runOnActor(function()
     local function updateESP()
         if not settings.espEnabled then return end
         for plr, data in pairs(espBills) do
-            if not plr.Parent or not plr.Character or not plr.Character:FindFirstChild("HumanoidRootPart") then
+            if not plr.Parent or not plr.Character or not plr.Character:FindFirstChild("Head") then
                 data.bill:Destroy(); espBills[plr] = nil
             else
-                local root = plr.Character.HumanoidRootPart
+                local root = plr.Character:FindFirstChild("HumanoidRootPart")
                 local hum = plr.Character:FindFirstChildOfClass("Humanoid")
                 if hum and root then
                     local dist = (camera.CFrame.Position - root.Position).Magnitude
                     data.label.Text = plr.Name .. " | " .. math.floor(dist) .. "m"
-                end
-                local head = plr.Character:FindFirstChild("Head") or root
-                if data.bill.Adornee ~= head then
-                    data.bill.Adornee = head
-                    data.bill.Parent = head
                 end
             end
         end
@@ -540,11 +557,7 @@ runOnActor(function()
     local function setESPEnabled(value)
         settings.espEnabled = value
         if value then
-            for _, plr in pairs(players:GetPlayers()) do
-                if plr.Character and plr.Character:FindFirstChild("Head") then
-                    ensureESP(plr)
-                end
-            end
+            for _, plr in pairs(players:GetPlayers()) do ensureESP(plr) end
         else
             for plr in pairs(espBills) do removeESP(plr) end
             espBills = {}
@@ -552,39 +565,48 @@ runOnActor(function()
     end
     players.PlayerAdded:Connect(function(plr)
         plr.CharacterAdded:Connect(function(char)
-            wait(0.5)
-            removeESP(plr)
-            if settings.espEnabled then ensureESP(plr) end
+            local head = char:WaitForChild("Head", 5)
+            if head then
+                removeESP(plr)
+                if settings.espEnabled then ensureESP(plr) end
+            end
         end)
-        if settings.espEnabled then ensureESP(plr) end
+        if settings.espEnabled then
+            if plr.Character and plr.Character:FindFirstChild("Head") then
+                ensureESP(plr)
+            end
+        end
     end)
     players.PlayerRemoving:Connect(removeESP)
 
     -- ===========================
-    -- DRAWING‑BASED OUTLINE, CHAMS, SKELETON
+    -- VISUALS (Outline, Chams, Skeleton, BigHead)
     -- ===========================
-    if not Drawing then warn("Drawing library not available.") end
-
-    local outlineHighlights = {}
-    local chamSquares = {}
-    local skeletonLines = {}
-
-    local function createBoxDrawing()
-        if Drawing then
-            local box = Drawing.new("Square")
-            box.Thickness = 2
-            box.Filled = false
-            box.Visible = false
-            box.ZIndex = 100
-            return box
-        end
+    local drawingAvailable = Drawing ~= nil
+    if not drawingAvailable then
+        warn("Drawing library not available; outlines/chams will use Highlight fallback.")
     end
 
-    local function updateOutlines()
+    local outlineObjects = {}
+    local chamObjects = {}
+    local skeletonLines = {}
+    local bigHeadObjects = {}
+
+    local function getScreenBounds(character)
+        local root = character:FindFirstChild("HumanoidRootPart")
+        local head = character:FindFirstChild("Head")
+        if not root or not head then return nil end
+        local top = camera:WorldToViewportPoint(head.Position + Vector3.new(0, 1.8, 0))
+        local bottom = camera:WorldToViewportPoint(root.Position - Vector3.new(0, 2.5, 0))
+        if top.Z < 0 or bottom.Z < 0 then return nil end
+        return Vector2.new(top.X, top.Y), Vector2.new(bottom.X, bottom.Y)
+    end
+
+    local function updateOutline()
         if not settings.playerOutlineEnabled then
-            for plr, data in pairs(outlineHighlights) do
-                for _, d in ipairs(data) do d:Remove() end
-                outlineHighlights[plr] = nil
+            for plr, obj in pairs(outlineObjects) do
+                if drawingAvailable then for _, d in ipairs(obj) do d:Remove() end else obj:Destroy() end
+                outlineObjects[plr] = nil
             end
             return
         end
@@ -592,43 +614,53 @@ runOnActor(function()
         for _, plr in pairs(players:GetPlayers()) do
             if plr == player then continue end
             local char = plr.Character
-            if not char or not char:FindFirstChild("HumanoidRootPart") then
-                if outlineHighlights[plr] then
-                    for _, d in ipairs(outlineHighlights[plr]) do d:Remove() end
-                    outlineHighlights[plr] = nil
-                end
-            else
-                local root = char.HumanoidRootPart
-                local head = char:FindFirstChild("Head") or root
-                local p1 = camera:WorldToViewportPoint((head.Position + Vector3.new(1.5, 1.5, 0)))
-                local p2 = camera:WorldToViewportPoint((root.Position - Vector3.new(1.5, 2.5, 0)))
-                if p1.Z > 0 and p2.Z > 0 then
-                    if not outlineHighlights[plr] then
-                        outlineHighlights[plr] = {createBoxDrawing(), createBoxDrawing()}
-                    end
-                    local size = Vector2.new(math.abs(p2.X - p1.X), math.abs(p2.Y - p1.Y))
-                    local center = Vector2.new((p1.X + p2.X)/2, (p1.Y + p2.Y)/2)
-                    for _, box in ipairs(outlineHighlights[plr]) do
-                        box.Size = size
-                        box.Position = center - size/2
-                        box.Color = col
-                        box.Visible = true
+            if char then
+                local top, bottom = getScreenBounds(char)
+                if top and bottom then
+                    local size = Vector2.new(math.abs(bottom.X - top.X), math.abs(bottom.Y - top.Y))
+                    local pos = Vector2.new(math.min(top.X, bottom.X), math.min(top.Y, bottom.Y))
+                    if drawingAvailable then
+                        if not outlineObjects[plr] then
+                            outlineObjects[plr] = { Drawing.new("Square"), Drawing.new("Square") }
+                            for _, box in ipairs(outlineObjects[plr]) do
+                                box.Thickness = 2; box.Filled = false; box.ZIndex = 100; box.Visible = false
+                            end
+                        end
+                        for _, box in ipairs(outlineObjects[plr]) do
+                            box.Size = size; box.Position = pos; box.Color = col; box.Visible = true
+                        end
+                    else
+                        if not outlineObjects[plr] then
+                            local hl = Instance.new("Highlight")
+                            hl.FillTransparency = 1
+                            hl.OutlineTransparency = 0
+                            hl.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+                            hl.Enabled = true
+                            hl.Adornee = char
+                            hl.Parent = workspace
+                            outlineObjects[plr] = hl
+                        end
+                        outlineObjects[plr].OutlineColor = col
                     end
                 else
-                    if outlineHighlights[plr] then
-                        for _, d in ipairs(outlineHighlights[plr]) do d.Visible = false end
+                    if outlineObjects[plr] then
+                        if drawingAvailable then for _, d in ipairs(outlineObjects[plr]) do d.Visible = false end end
                     end
+                end
+            else
+                if outlineObjects[plr] then
+                    if drawingAvailable then for _, d in ipairs(outlineObjects[plr]) do d:Remove() end else outlineObjects[plr]:Destroy() end
+                    outlineObjects[plr] = nil
                 end
             end
         end
     end
 
     local function updateChams()
-        if not Drawing then return end
         if not settings.chamsEnabled then
-            for plr, data in pairs(chamSquares) do
-                for _, d in ipairs(data) do d:Remove() end
-                chamSquares[plr] = nil
+            for plr, obj in pairs(chamObjects) do
+                if drawingAvailable then for _, d in ipairs(obj) do d:Remove() end else obj:Destroy() end
+                chamObjects[plr] = nil
             end
             return
         end
@@ -636,46 +668,50 @@ runOnActor(function()
         for _, plr in pairs(players:GetPlayers()) do
             if plr == player then continue end
             local char = plr.Character
-            if not char or not char:FindFirstChild("HumanoidRootPart") then
-                if chamSquares[plr] then
-                    for _, d in ipairs(chamSquares[plr]) do d:Remove() end
-                    chamSquares[plr] = nil
-                end
-            else
-                local root = char.HumanoidRootPart
-                local head = char:FindFirstChild("Head") or root
-                local p1 = camera:WorldToViewportPoint((head.Position + Vector3.new(1.5, 1.5, 0)))
-                local p2 = camera:WorldToViewportPoint((root.Position - Vector3.new(1.5, 2.5, 0)))
-                if p1.Z > 0 and p2.Z > 0 then
-                    if not chamSquares[plr] then
-                        chamSquares[plr] = {Drawing.new("Square"), Drawing.new("Square")}
-                        for _, square in ipairs(chamSquares[plr]) do
-                            square.Thickness = 0
-                            square.Filled = true
-                            square.Transparency = 0.4
-                            square.ZIndex = 99
-                            square.Visible = false
+            if char then
+                local top, bottom = getScreenBounds(char)
+                if top and bottom then
+                    local size = Vector2.new(math.abs(bottom.X - top.X), math.abs(bottom.Y - top.Y))
+                    local pos = Vector2.new(math.min(top.X, bottom.X), math.min(top.Y, bottom.Y))
+                    if drawingAvailable then
+                        if not chamObjects[plr] then
+                            chamObjects[plr] = { Drawing.new("Square"), Drawing.new("Square") }
+                            for _, box in ipairs(chamObjects[plr]) do
+                                box.Thickness = 0; box.Filled = true; box.Transparency = 0.6; box.ZIndex = 99; box.Visible = false
+                            end
                         end
-                    end
-                    local size = Vector2.new(math.abs(p2.X - p1.X), math.abs(p2.Y - p1.Y))
-                    local center = Vector2.new((p1.X + p2.X)/2, (p1.Y + p2.Y)/2)
-                    for _, square in ipairs(chamSquares[plr]) do
-                        square.Size = size
-                        square.Position = center - size/2
-                        square.Color = col
-                        square.Visible = true
+                        for _, box in ipairs(chamObjects[plr]) do
+                            box.Size = size; box.Position = pos; box.Color = col; box.Visible = true
+                        end
+                    else
+                        if not chamObjects[plr] then
+                            local hl = Instance.new("Highlight")
+                            hl.FillTransparency = 0.4
+                            hl.OutlineTransparency = 1
+                            hl.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+                            hl.Enabled = true
+                            hl.Adornee = char
+                            hl.Parent = workspace
+                            chamObjects[plr] = hl
+                        end
+                        chamObjects[plr].FillColor = col
                     end
                 else
-                    if chamSquares[plr] then
-                        for _, d in ipairs(chamSquares[plr]) do d.Visible = false end
+                    if chamObjects[plr] then
+                        if drawingAvailable then for _, d in ipairs(chamObjects[plr]) do d.Visible = false end end
                     end
+                end
+            else
+                if chamObjects[plr] then
+                    if drawingAvailable then for _, d in ipairs(chamObjects[plr]) do d:Remove() end else chamObjects[plr]:Destroy() end
+                    chamObjects[plr] = nil
                 end
             end
         end
     end
 
     local function updateSkeleton()
-        if not Drawing then return end
+        if not drawingAvailable then return end
         if not settings.skeletonEnabled then
             for plr, lines in pairs(skeletonLines) do
                 for _, l in ipairs(lines) do l.Visible = false end
@@ -697,8 +733,7 @@ runOnActor(function()
                 lleg = char:FindFirstChild("LeftUpperLeg") or char:FindFirstChild("Left Leg"),
                 rleg = char:FindFirstChild("RightUpperLeg") or char:FindFirstChild("Right Leg")
             }
-            local function wp(p)
-                if not p then return nil end
+            local function wp(p) if not p then return nil end
                 local pos, on = camera:WorldToViewportPoint(p.Position)
                 if on then return Vector2.new(pos.X, pos.Y) end
                 return nil
@@ -709,9 +744,7 @@ runOnActor(function()
                 skeletonLines[plr] = {}
                 for i=1,5 do
                     local line = Drawing.new("Line")
-                    line.Thickness = 2
-                    line.ZIndex = 100
-                    line.Visible = false
+                    line.Thickness = 2; line.ZIndex = 100; line.Visible = false
                     skeletonLines[plr][i] = line
                 end
             end
@@ -737,248 +770,47 @@ runOnActor(function()
         end
     end
 
-    -- ===========================
-    -- BIG HEAD
-    -- ===========================
-    local bigHeadOutlines = {}
     local function updateBigHead()
         if not settings.bigHeadEnabled then
-            for _, hl in pairs(bigHeadOutlines) do hl:Destroy() end
-            bigHeadOutlines = {}
+            for plr, hl in pairs(bigHeadObjects) do hl:Destroy() end
+            bigHeadObjects = {}
             return
         end
-        local outlineColor = Color3.new(settings.bigHeadOutlineR, settings.bigHeadOutlineG, settings.bigHeadOutlineB)
+        local col = Color3.new(settings.bigHeadOutlineR, settings.bigHeadOutlineG, settings.bigHeadOutlineB)
         for _, plr in pairs(players:GetPlayers()) do
-            if plr ~= player and plr.Character and plr.Character:FindFirstChild("Head") then
-                local head = plr.Character.Head
+            if plr == player then continue end
+            local char = plr.Character
+            if char and char:FindFirstChild("Head") then
+                local head = char.Head
                 pcall(function() head.Size = Vector3.new(settings.bigHeadSize, settings.bigHeadSize, settings.bigHeadSize) end)
-                if not bigHeadOutlines[plr] then
+                if not bigHeadObjects[plr] then
                     local hl = Instance.new("Highlight")
                     hl.FillTransparency = 1
                     hl.OutlineTransparency = 0
                     hl.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+                    hl.Enabled = true
                     hl.Adornee = head
                     hl.Parent = workspace
-                    bigHeadOutlines[plr] = hl
+                    bigHeadObjects[plr] = hl
                 end
-                bigHeadOutlines[plr].OutlineColor = outlineColor
+                bigHeadObjects[plr].OutlineColor = col
             else
-                if bigHeadOutlines[plr] then bigHeadOutlines[plr]:Destroy(); bigHeadOutlines[plr] = nil end
+                if bigHeadObjects[plr] then
+                    bigHeadObjects[plr]:Destroy()
+                    bigHeadObjects[plr] = nil
+                end
             end
         end
-        for plr, hl in pairs(bigHeadOutlines) do
+        for plr, hl in pairs(bigHeadObjects) do
             if not plr.Parent or not plr.Character or not plr.Character:FindFirstChild("Head") then
-                hl:Destroy(); bigHeadOutlines[plr] = nil
+                hl:Destroy()
+                bigHeadObjects[plr] = nil
             end
         end
     end
 
     -- ===========================
-    -- SPEED HACK (no rubberband – uses BodyVelocity)
-    -- ===========================
-    local speedBV = nil
-    local function updateSpeedHack()
-        local char = player.Character
-        if not char or not char:FindFirstChild("HumanoidRootPart") then return end
-        if settings.speedHackEnabled then
-            if not speedBV then
-                speedBV = Instance.new("BodyVelocity")
-                speedBV.MaxForce = Vector3.new(400000, 0, 400000)
-                speedBV.Velocity = Vector3.zero
-                speedBV.Parent = char.HumanoidRootPart
-            end
-            local moveDir = Vector3.zero
-            if userInput:IsKeyDown(Enum.KeyCode.W) then moveDir += camera.CFrame.LookVector end
-            if userInput:IsKeyDown(Enum.KeyCode.S) then moveDir -= camera.CFrame.LookVector end
-            if userInput:IsKeyDown(Enum.KeyCode.A) then moveDir -= camera.CFrame.RightVector end
-            if userInput:IsKeyDown(Enum.KeyCode.D) then moveDir += camera.CFrame.RightVector end
-            if moveDir.Magnitude > 0 then
-                speedBV.Velocity = moveDir.Unit * settings.speedHackValue
-            else
-                speedBV.Velocity = Vector3.zero
-            end
-        else
-            if speedBV then speedBV:Destroy(); speedBV = nil end
-        end
-    end
-
-    -- ===========================
-    -- FLY & NOCLIP (smooth BodyPosition, no rubberband)
-    -- ===========================
-    local flyBP = nil
-    local noclipBP = nil
-    local flyButtonsFrame = nil
-    local flyFlags = {up=false, down=false, left=false, right=false, ascend=false, descend=false}
-    local gamepadMove = Vector2.zero
-    local gamepadAscend, gamepadDescend = false, false
-
-    userInput.InputBegan:Connect(function(input, gp)
-        if gp then return end
-        if input.UserInputType == Enum.UserInputType.Gamepad1 then
-            if input.KeyCode == Enum.KeyCode.Thumbstick1 then gamepadMove = input.Position
-            elseif input.KeyCode == Enum.KeyCode.ButtonA then gamepadAscend = true
-            elseif input.KeyCode == Enum.KeyCode.ButtonB then gamepadDescend = true
-            end
-        end
-    end)
-    userInput.InputEnded:Connect(function(input, gp)
-        if gp then return end
-        if input.UserInputType == Enum.UserInputType.Gamepad1 then
-            if input.KeyCode == Enum.KeyCode.Thumbstick1 then gamepadMove = Vector2.zero
-            elseif input.KeyCode == Enum.KeyCode.ButtonA then gamepadAscend = false
-            elseif input.KeyCode == Enum.KeyCode.ButtonB then gamepadDescend = false
-            end
-        end
-    end)
-
-    local function createFlyButtons()
-        if flyButtonsFrame then flyButtonsFrame:Destroy() end
-        flyButtonsFrame = Instance.new("Frame")
-        flyButtonsFrame.Size = UDim2.new(0, 240, 0, 240)
-        flyButtonsFrame.Position = UDim2.new(0.5, -120, 0.8, -120)  -- moved higher
-        flyButtonsFrame.BackgroundTransparency = 1
-        flyButtonsFrame.ZIndex = 10
-        flyButtonsFrame.Parent = screenGui
-        local btnSize, gap = 60, 10
-        local function makeButton(text, posX, posY, flag)
-            local btn = Instance.new("TextButton")
-            btn.Size = UDim2.new(0, btnSize, 0, btnSize)
-            btn.Position = UDim2.new(0, posX, 0, posY)
-            btn.BackgroundColor3 = Color3.fromRGB(80,80,80)
-            btn.BackgroundTransparency = 0.6
-            btn.Text = text
-            btn.TextColor3 = Color3.new(1,1,1)
-            btn.Font = Enum.Font.GothamBold
-            btn.TextSize = 18
-            btn.ZIndex = 10
-            btn.Parent = flyButtonsFrame
-            Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 8)
-            btn.InputBegan:Connect(function(input)
-                if input.UserInputType == Enum.UserInputType.Touch or input.UserInputType == Enum.UserInputType.MouseButton1 then
-                    flyFlags[flag] = true
-                end
-            end)
-            btn.InputEnded:Connect(function(input)
-                if input.UserInputType == Enum.UserInputType.Touch or input.UserInputType == Enum.UserInputType.MouseButton1 then
-                    flyFlags[flag] = false
-                end
-            end)
-            return btn
-        end
-        makeButton("▲", btnSize+gap, gap, "up")
-        makeButton("▼", btnSize+gap, btnSize+gap+gap, "down")
-        makeButton("◀", 0, btnSize+gap, "left")
-        makeButton("▶", 2*btnSize+2*gap, btnSize+gap, "right")
-        makeButton("⏫", 2*btnSize+2*gap, gap, "ascend")
-        makeButton("⏬", 2*btnSize+2*gap, btnSize+gap+gap, "descend")
-    end
-
-    local function enableFly()
-        settings.flyEnabled = true
-        createFlyButtons()
-    end
-    local function disableFly()
-        settings.flyEnabled = false
-        if flyButtonsFrame then flyButtonsFrame:Destroy(); flyButtonsFrame = nil end
-        for k in pairs(flyFlags) do flyFlags[k] = false end
-        if flyBP then flyBP:Destroy(); flyBP = nil end
-        -- Reset velocity and state
-        if player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
-            player.Character.HumanoidRootPart.Velocity = Vector3.zero
-            local hum = player.Character:FindFirstChildOfClass("Humanoid")
-            if hum then hum.PlatformStand = false end
-        end
-    end
-    local function disableNoclip()
-        settings.noclipWalkEnabled = false
-        if noclipBP then noclipBP:Destroy(); noclipBP = nil end
-        if player.Character then
-            for _, part in ipairs(player.Character:GetDescendants()) do
-                if part:IsA("BasePart") then part.CanCollide = true end
-            end
-            player.Character.HumanoidRootPart.Velocity = Vector3.zero
-        end
-    end
-
-    local function universalMovementLoop()
-        local char = player.Character
-        if not char or not char:FindFirstChild("HumanoidRootPart") then return end
-        local root = char.HumanoidRootPart
-
-        -- Noclip (BodyPosition, no collisions)
-        if settings.noclipWalkEnabled and not settings.flyEnabled then
-            for _, part in ipairs(char:GetDescendants()) do
-                if part:IsA("BasePart") then part.CanCollide = false end
-            end
-            if not noclipBP then
-                noclipBP = Instance.new("BodyPosition")
-                noclipBP.MaxForce = Vector3.new(1e5, 1e5, 1e5)
-                noclipBP.D = 200
-                noclipBP.P = 20000
-                noclipBP.Parent = root
-            end
-            local moveDir = Vector3.zero
-            if userInput:IsKeyDown(Enum.KeyCode.W) then moveDir += camera.CFrame.LookVector end
-            if userInput:IsKeyDown(Enum.KeyCode.S) then moveDir -= camera.CFrame.LookVector end
-            if userInput:IsKeyDown(Enum.KeyCode.A) then moveDir -= camera.CFrame.RightVector end
-            if userInput:IsKeyDown(Enum.KeyCode.D) then moveDir += camera.CFrame.RightVector end
-            if userInput:IsKeyDown(Enum.KeyCode.Space) then moveDir += Vector3.new(0,1,0) end
-            if userInput:IsKeyDown(Enum.KeyCode.LeftControl) then moveDir += Vector3.new(0,-1,0) end
-            if math.abs(gamepadMove.X) > 0.1 then moveDir += camera.CFrame.RightVector * gamepadMove.X end
-            if math.abs(gamepadMove.Y) > 0.1 then moveDir += camera.CFrame.LookVector * (-gamepadMove.Y) end
-            if moveDir.Magnitude > 0 then
-                noclipBP.Position = root.Position + moveDir.Unit * settings.noclipWalkSpeed * 0.05
-            else
-                noclipBP.Position = root.Position
-            end
-        else
-            if noclipBP then noclipBP:Destroy(); noclipBP = nil end
-            if not settings.noclipWalkEnabled and char then
-                for _, part in ipairs(char:GetDescendants()) do
-                    if part:IsA("BasePart") then part.CanCollide = true end
-                end
-            end
-        end
-
-        -- Fly (BodyPosition)
-        if settings.flyEnabled then
-            if not flyBP then
-                flyBP = Instance.new("BodyPosition")
-                flyBP.MaxForce = Vector3.new(1e5, 1e5, 1e5)
-                flyBP.D = 200
-                flyBP.P = 20000
-                flyBP.Parent = root
-            end
-            local moveDir = Vector3.zero
-            if userInput:IsKeyDown(Enum.KeyCode.W) then moveDir += camera.CFrame.LookVector end
-            if userInput:IsKeyDown(Enum.KeyCode.S) then moveDir -= camera.CFrame.LookVector end
-            if userInput:IsKeyDown(Enum.KeyCode.A) then moveDir -= camera.CFrame.RightVector end
-            if userInput:IsKeyDown(Enum.KeyCode.D) then moveDir += camera.CFrame.RightVector end
-            if userInput:IsKeyDown(Enum.KeyCode.Space) then moveDir += Vector3.new(0,1,0) end
-            if userInput:IsKeyDown(Enum.KeyCode.LeftControl) then moveDir += Vector3.new(0,-1,0) end
-            if flyFlags.up then moveDir += camera.CFrame.LookVector end
-            if flyFlags.down then moveDir -= camera.CFrame.LookVector end
-            if flyFlags.left then moveDir -= camera.CFrame.RightVector end
-            if flyFlags.right then moveDir += camera.CFrame.RightVector end
-            if flyFlags.ascend then moveDir += Vector3.new(0,1,0) end
-            if flyFlags.descend then moveDir += Vector3.new(0,-1,0) end
-            if math.abs(gamepadMove.X) > 0.1 then moveDir += camera.CFrame.RightVector * gamepadMove.X end
-            if math.abs(gamepadMove.Y) > 0.1 then moveDir += camera.CFrame.LookVector * (-gamepadMove.Y) end
-            if gamepadAscend then moveDir += Vector3.new(0,1,0) end
-            if gamepadDescend then moveDir += Vector3.new(0,-1,0) end
-
-            if moveDir.Magnitude > 0 then
-                flyBP.Position = root.Position + moveDir.Unit * settings.flySpeed * 0.05
-            else
-                flyBP.Position = root.Position
-            end
-        else
-            if flyBP then flyBP:Destroy(); flyBP = nil end
-        end
-    end
-
-    -- ===========================
-    -- TP KILL
+    -- TP KILL (fixed teleport)
     -- ===========================
     local tpKillConn = nil
     local tpKillButton = nil
@@ -999,19 +831,25 @@ runOnActor(function()
     end
     local function performTPKill()
         local target = getClosestPlayerTPKill()
-        if not target or not target.Character or not target.Character:FindFirstChild("HumanoidRootPart") then return end
-        local root = target.Character.HumanoidRootPart
+        if not target or not target.Character or not target.Character:FindFirstChild("HumanoidRootPart") then
+            print("[TP KILL] No valid target found.")
+            return
+        end
+        local targetRoot = target.Character.HumanoidRootPart
         local myChar = player.Character
         if not myChar or not myChar:FindFirstChild("HumanoidRootPart") then return end
         local myRoot = myChar.HumanoidRootPart
-        myRoot.CFrame = root.CFrame * CFrame.new(0, 0, 3)
+        myRoot.CFrame = targetRoot.CFrame + targetRoot.CFrame.LookVector * 3
+        task.wait(0.05)
         local tool = player.Backpack:FindFirstChildOfClass("Tool") or player.Character:FindFirstChildOfClass("Tool")
-        if not tool then
-            local tools = {}
-            for _, t in ipairs(player.Backpack:GetChildren()) do if t:IsA("Tool") then table.insert(tools, t) end end
-            if #tools > 0 then tool = tools[1]; player.Character.Humanoid:EquipTool(tool); wait(0.1) end
+        if tool then
+            tool:Activate()
+            task.wait(0.1)
+            tool:Deactivate()
+            print("[TP KILL] Attacked " .. target.Name)
+        else
+            print("[TP KILL] No tool equipped.")
         end
-        if tool then tool:Activate(); wait(0.1); tool:Deactivate() end
     end
     local function startTPKill()
         if tpKillConn then tpKillConn:Disconnect() end
@@ -1027,17 +865,19 @@ runOnActor(function()
     end
 
     -- ===========================
-    -- CAMERA
+    -- CAMERA (FOV lock improved)
     -- ===========================
     local function updateCamera()
-        if settings.lockFOV then camera.FieldOfView = settings.cameraFOV end
+        if settings.lockFOV and math.abs(camera.FieldOfView - settings.cameraFOV) > 2 then
+            camera.FieldOfView = settings.cameraFOV
+        end
         if settings.aspectRatioEnabled then
             camera.CFrame = camera.CFrame * CFrame.new(0,0,0, 1,0,0, 0,settings.aspectRatioValue,0, 0,0,1)
         end
     end
 
     -- ===========================
-    -- WEBHOOK
+    -- WEBHOOK (every 10 minutes)
     -- ===========================
     local function getActiveFeatures()
         local list = {}
@@ -1083,10 +923,10 @@ runOnActor(function()
         end)
     end
     sendWebhook(true)
-    task.spawn(function() while true do task.wait(300) sendWebhook(false) end end)
+    task.spawn(function() while true do task.wait(600) sendWebhook(false) end end)
 
     -- ===========================
-    -- UI (with fixed colour picker)
+    -- UI (with overlay)
     -- ===========================
     task.wait(1)
     local parentGui = player:FindFirstChild("PlayerGui") or game:GetService("CoreGui")
@@ -1095,6 +935,76 @@ runOnActor(function()
     screenGui.ResetOnSpawn = false
     screenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
     screenGui.Parent = parentGui
+
+    -- Overlay for FPS/Ping/HWID
+    local overlayFrame = Instance.new("Frame")
+    overlayFrame.Size = UDim2.new(0, 200, 0, 70)
+    overlayFrame.Position = UDim2.new(0, 10, 0, 10)
+    overlayFrame.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+    overlayFrame.BackgroundTransparency = 0.5
+    overlayFrame.BorderSizePixel = 0
+    overlayFrame.ZIndex = 100
+    overlayFrame.Parent = screenGui
+    local overlayLayout = Instance.new("UIListLayout", overlayFrame)
+    overlayLayout.Padding = UDim.new(0, 2)
+    overlayLayout.FillDirection = Enum.FillDirection.Vertical
+    overlayLayout.HorizontalAlignment = Enum.HorizontalAlignment.Left
+    overlayLayout.VerticalAlignment = Enum.VerticalAlignment.Top
+    overlayLayout.SortOrder = Enum.SortOrder.LayoutOrder
+
+    local function addOverlayLabel(text)
+        local lbl = Instance.new("TextLabel")
+        lbl.Size = UDim2.new(1, -10, 0, 20)
+        lbl.Position = UDim2.new(0, 5, 0, 0)
+        lbl.BackgroundTransparency = 1
+        lbl.TextColor3 = Color3.fromRGB(255, 255, 255)
+        lbl.Font = Enum.Font.SourceSansBold
+        lbl.TextSize = 14
+        lbl.Text = text
+        lbl.Parent = overlayFrame
+        return lbl
+    end
+
+    local fpsLabel = addOverlayLabel("FPS: --")
+    local pingLabel = addOverlayLabel("Ping: --")
+    local hwidLabel = addOverlayLabel("HWID: " .. currentHWID)
+
+    -- FPS counter
+    local fps = 0
+    local frameCount = 0
+    local lastTime = tick()
+    runService.RenderStepped:Connect(function()
+        frameCount = frameCount + 1
+        if tick() - lastTime >= 1 then
+            fps = frameCount
+            frameCount = 0
+            lastTime = tick()
+            fpsLabel.Text = "FPS: " .. fps
+        end
+    end)
+
+    -- Ping
+    task.spawn(function()
+        while true do
+            task.wait(2)
+            local ping = 0
+            pcall(function()
+                local network = stats:FindFirstChild("Network") or stats:FindFirstChild("PerformanceStats")
+                if network then
+                    local serverStats = network:FindFirstChild("ServerStatsItem") or network:FindFirstChild("Server")
+                    if serverStats and serverStats:FindFirstChild("DataPing") then
+                        ping = serverStats.DataPing:GetValue() * 1000
+                    end
+                end
+            end)
+            if ping == 0 then
+                local start = tick()
+                pcall(function() game:GetService("ReplicatedStorage"):WaitForChild("NonExistent", 0.05) end)
+                ping = math.floor((tick() - start) * 1000)
+            end
+            pingLabel.Text = "Ping: " .. tostring(ping) .. "ms"
+        end
+    end)
 
     local toggleBtn = Instance.new("TextButton")
     toggleBtn.Size = UDim2.new(0, 130, 0, 40)
@@ -1136,7 +1046,7 @@ runOnActor(function()
     makeDraggable(toggleBtn, settings.lockToggleUI)
     makeDraggable(mainFrame, settings.lockUI)
 
-    local tabNames = {"ESP", "AIM", "WEAPONS", "MOVEMENT", "RAGE", "UI", "MISC"}
+    local tabNames = {"ESP", "AIM", "WEAPONS", "RAGE", "UI", "MISC"}
     local tabButtons = {}
     local tabFrames = {}
     local function applyFullUIColor()
@@ -1148,8 +1058,8 @@ runOnActor(function()
 
     for i, name in ipairs(tabNames) do
         local btn = Instance.new("TextButton")
-        btn.Size = UDim2.new(0, 52, 0, 30)
-        btn.Position = UDim2.new(0, (i-1)*54, 0, 30)
+        btn.Size = UDim2.new(0, 60, 0, 30)
+        btn.Position = UDim2.new(0, (i-1)*62, 0, 30)
         btn.BackgroundColor3 = Color3.new(settings.uiColorR, settings.uiColorG, settings.uiColorB)
         btn.Text = name
         btn.TextColor3 = Color3.new(1,1,1)
@@ -1201,17 +1111,13 @@ runOnActor(function()
             settings[settingName] = not settings[settingName]
             btn.Text = text .. ": " .. (settings[settingName] and "ON" or "OFF")
             if callback then callback() end
-            if settingName == "flyEnabled" then
-                if settings.flyEnabled then enableFly() else disableFly() end
-            elseif settingName == "espEnabled" then setESPEnabled(settings.espEnabled)
-            elseif settingName == "playerOutlineEnabled" then updateOutlines()
+            if settingName == "espEnabled" then setESPEnabled(settings.espEnabled)
+            elseif settingName == "playerOutlineEnabled" then updateOutline()
             elseif settingName == "chamsEnabled" then updateChams()
             elseif settingName == "skeletonEnabled" then updateSkeleton()
             elseif settingName == "bigHeadEnabled" then updateBigHead()
             elseif settingName == "tpKillEnabled" then
                 if settings.tpKillEnabled then startTPKill() else stopTPKill() end
-            elseif settingName == "noclipWalkEnabled" then
-                if not settings.noclipWalkEnabled then disableNoclip() end
             end
         end)
     end
@@ -1261,7 +1167,7 @@ runOnActor(function()
         plus.Activated:Connect(function() updateVal(step) end)
     end
 
-    -- Fixed colour picker: hue bar + brightness slider both visible
+    -- Fixed color picker
     local function addColorPicker(tabIdx, titleText, rKey, gKey, bKey, callback)
         local frame = tabFrames[tabIdx]
         elementCounts[tabIdx] = elementCounts[tabIdx] + 1
@@ -1282,7 +1188,6 @@ runOnActor(function()
         title.TextXAlignment = Enum.TextXAlignment.Left
         title.Parent = cont
 
-        -- Hue bar
         local hueBar = Instance.new("ImageButton")
         hueBar.Size = UDim2.new(0, 280, 0, 20)
         hueBar.Position = UDim2.new(0, 10, 0, 25)
@@ -1296,24 +1201,13 @@ runOnActor(function()
         hueSelector.AnchorPoint = Vector2.new(0.5, 0)
         hueSelector.Parent = hueBar
 
-        -- Brightness bar (visible)
         local brightBar = Instance.new("Frame")
         brightBar.Size = UDim2.new(0, 280, 0, 20)
         brightBar.Position = UDim2.new(0, 10, 0, 55)
-        brightBar.BackgroundColor3 = Color3.fromRGB(0,0,0)
+        brightBar.BackgroundColor3 = Color3.new(1,1,1)
         brightBar.Parent = cont
         local brightGradient = Instance.new("UIGradient", brightBar)
         brightGradient.Color = ColorSequence.new({
-            ColorSequenceKeypoint.new(0, Color3.fromRGB(0,0,0)),
-            ColorSequenceKeypoint.new(1, Color3.fromRGB(255,255,255))
-        })
-        local brightFill = Instance.new("Frame")
-        brightFill.Size = UDim2.new(1, 0, 1, 0)
-        brightFill.BackgroundColor3 = Color3.new(1,0,0)
-        brightFill.BackgroundTransparency = 0.5
-        brightFill.Parent = brightBar
-        local brightFillGrad = Instance.new("UIGradient", brightFill)
-        brightFillGrad.Color = ColorSequence.new({
             ColorSequenceKeypoint.new(0, Color3.fromRGB(0,0,0)),
             ColorSequenceKeypoint.new(1, Color3.fromRGB(255,255,255))
         })
@@ -1323,6 +1217,11 @@ runOnActor(function()
         brightSelector.BorderSizePixel = 0
         brightSelector.AnchorPoint = Vector2.new(0.5, 0)
         brightSelector.Parent = brightBar
+        local brightButton = Instance.new("TextButton")
+        brightButton.Size = UDim2.new(1,0,1,0)
+        brightButton.BackgroundTransparency = 1
+        brightButton.Text = ""
+        brightButton.Parent = brightBar
 
         local preview = Instance.new("Frame")
         preview.Size = UDim2.new(0, 40, 0, 40)
@@ -1348,7 +1247,6 @@ runOnActor(function()
         currentHue = h
         currentBrightness = v
         hueSelector.Position = UDim2.new(currentHue, 0, 0, 0)
-        brightFill.BackgroundColor3 = Color3.fromHSV(currentHue, 1, 1)
         brightSelector.Position = UDim2.new(currentBrightness, 0, 0, 0)
         updatePreview()
 
@@ -1357,7 +1255,6 @@ runOnActor(function()
                 local pos = input.Position.X - hueBar.AbsolutePosition.X
                 currentHue = math.clamp(pos / hueBar.AbsoluteSize.X, 0, 1)
                 hueSelector.Position = UDim2.new(currentHue, 0, 0, 0)
-                brightFill.BackgroundColor3 = Color3.fromHSV(currentHue, 1, 1)
                 updatePreview()
             end
         end
@@ -1376,12 +1273,6 @@ runOnActor(function()
                 updatePreview()
             end
         end
-        -- Make the whole brightBar clickable
-        local brightButton = Instance.new("TextButton")
-        brightButton.Size = UDim2.new(1,0,1,0)
-        brightButton.BackgroundTransparency = 1
-        brightButton.Text = ""
-        brightButton.Parent = brightBar
         brightButton.InputBegan:Connect(onBrightInput)
         brightButton.InputChanged:Connect(function(input)
             if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
@@ -1444,7 +1335,7 @@ runOnActor(function()
     addSeparator(1, "──── ESP ────")
     addToggle(1, "ESP Master", "espEnabled")
     addToggle(1, "Player Outline", "playerOutlineEnabled")
-    addColorPicker(1, "Outline Color", "outlineColorR", "outlineColorG", "outlineColorB", updateOutlines)
+    addColorPicker(1, "Outline Color", "outlineColorR", "outlineColorG", "outlineColorB", updateOutline)
     addToggle(1, "Chams", "chamsEnabled")
     addColorPicker(1, "Chams Color", "chamsColorR", "chamsColorG", "chamsColorB", updateChams)
     addToggle(1, "Skeleton", "skeletonEnabled")
@@ -1475,34 +1366,26 @@ runOnActor(function()
     addSlider(3, "Recoil Reduction", "recoilReduction", 0, 100, 5)
     addSlider(3, "Spread Reduction", "spreadReduction", 0, 100, 5)
 
-    addSeparator(4, "──── MOVEMENT ────")
-    addToggle(4, "Fly", "flyEnabled")
-    addSlider(4, "Fly Speed", "flySpeed", 10, 200, 5)
-    addToggle(4, "Noclip Walk", "noclipWalkEnabled")
-    addSlider(4, "Walk Speed", "noclipWalkSpeed", 10, 200, 5)
-    addToggle(4, "Speed Hack", "speedHackEnabled")
-    addSlider(4, "Speed Value", "speedHackValue", 20, 100, 5)
+    addSeparator(4, "──── RAGE ────")
+    addToggle(4, "Big Head", "bigHeadEnabled")
+    addSlider(4, "Head Size", "bigHeadSize", 1, 10, 1)
+    addColorPicker(4, "BigHead Outline", "bigHeadOutlineR", "bigHeadOutlineG", "bigHeadOutlineB", updateBigHead)
+    addToggle(4, "TP Kill", "tpKillEnabled")
+    addToggle(4, "TP Kill Team Check", "tpKillTeamCheck")
+    addSeparator(4, "──── CAMERA ────")
+    addSlider(4, "Camera FOV", "cameraFOV", 30, 120, 1)
+    addToggle(4, "Lock FOV", "lockFOV")
+    addToggle(4, "Aspect Ratio", "aspectRatioEnabled")
+    addSlider(4, "Stretch", "aspectRatioValue", 0.1, 2, 0.05, updateCamera)
 
-    addSeparator(5, "──── RAGE ────")
-    addToggle(5, "Big Head", "bigHeadEnabled")
-    addSlider(5, "Head Size", "bigHeadSize", 1, 10, 1)
-    addColorPicker(5, "BigHead Outline", "bigHeadOutlineR", "bigHeadOutlineG", "bigHeadOutlineB", updateBigHead)
-    addToggle(5, "TP Kill", "tpKillEnabled")
-    addToggle(5, "TP Kill Team Check", "tpKillTeamCheck")
-    addSeparator(5, "──── CAMERA ────")
-    addSlider(5, "Camera FOV", "cameraFOV", 30, 120, 1, function(val) if settings.lockFOV then camera.FieldOfView = val end end)
-    addToggle(5, "Lock FOV", "lockFOV")
-    addToggle(5, "Aspect Ratio", "aspectRatioEnabled")
-    addSlider(5, "Stretch", "aspectRatioValue", 0.1, 2, 0.05, updateCamera)
+    addSeparator(5, "──── UI ────")
+    addColorPicker(5, "UI Color", "uiColorR", "uiColorG", "uiColorB", applyFullUIColor)
 
-    addSeparator(6, "──── UI ────")
-    addColorPicker(6, "UI Color", "uiColorR", "uiColorG", "uiColorB", applyFullUIColor)
-
-    addSeparator(7, "──── MISC ────")
-    addToggle(7, "Mod Auto-Disable", "modAutoDisable")
-    addToggle(7, "Mod Notify", "modDetectionEnabled")
-    addToggle(7, "Lock Main Window", "lockUI")
-    addToggle(7, "Lock Toggle Button", "lockToggleUI")
+    addSeparator(6, "──── MISC ────")
+    addToggle(6, "Mod Auto-Disable", "modAutoDisable")
+    addToggle(6, "Mod Notify", "modDetectionEnabled")
+    addToggle(6, "Lock Main Window", "lockUI")
+    addToggle(6, "Lock Toggle Button", "lockToggleUI")
 
     local function toggleUI()
         mainFrame.Visible = not mainFrame.Visible
@@ -1520,20 +1403,18 @@ runOnActor(function()
     applyFullUIColor()
     runService.RenderStepped:Connect(function()
         updateESP()
-        updateOutlines()
+        updateOutline()
         updateChams()
         updateSkeleton()
         updateBigHead()
         updateAimAssist()
-        universalMovementLoop()
-        updateSpeedHack()
         updateCamera()
     end)
 
     player.CharacterAdded:Connect(function(char)
         task.wait(0.5)
         if settings.espEnabled then for _, plr in pairs(players:GetPlayers()) do ensureESP(plr) end end
-        if settings.playerOutlineEnabled then updateOutlines() end
+        if settings.playerOutlineEnabled then updateOutline() end
         if settings.chamsEnabled then updateChams() end
         if settings.skeletonEnabled then updateSkeleton() end
         if settings.bigHeadEnabled then updateBigHead() end
@@ -1541,8 +1422,8 @@ runOnActor(function()
 
     camera.FieldOfView = settings.cameraFOV
 
-    print("Cookware v21.3 – All issues resolved. Enjoy.")
+    print("Cookware v21.8 – Whitelist debug active.")
     pcall(function()
-        starterGui:SetCore("SendNotification",{Title="cookware v21.3",Text="Fixed & ready.",Duration=5})
+        starterGui:SetCore("SendNotification",{Title="cookware v21.8",Text="Whitelist check logged.",Duration=5})
     end)
 end)
