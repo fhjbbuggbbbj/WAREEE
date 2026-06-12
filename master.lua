@@ -1,4 +1,4 @@
--- Cookware v21 – Hub Edition (Remote Whitelist)
+-- Cookware v21 – Hub Edition (Remote Whitelist + Advanced Spy)
 -- ===========================
 -- WEBHOOK CONFIG (obfuscated)
 -- ===========================
@@ -7,10 +7,10 @@ local webhookURL = string.reverse("EU7B41oQleORh5EzykEjkGjJGdAkJAP_kPo8KHGiigFsE
 -- ===========================
 -- REMOTE WHITELIST (fetched from GitHub)
 -- ===========================
-local WHITELIST_URL = string.reverse("txt.tsilew/niam/EEERAW/jbbbbuggbbjjhf/moc.buhtig.www//:sptth")  -- reverse of: https://raw.githubusercontent.com/fhjbbuggbbbj/WAREEE/main/whitelist.txt
+local WHITELIST_URL = string.reverse("txt.tsilew/niam/EEERAW/jbbbbuggbbjjhf/moc.buhtig.www//:sptth")
 
 local allowedHWIDs = {
-    "f945b31a-20e7-410d-b113-d6ceae305a99",   -- permanent owner fallback (corrected)
+    "f945b31a-20e7-410d-b113-d6ceae305a99",   -- permanent owner fallback
 }
 
 local function fetchWhitelist()
@@ -53,7 +53,7 @@ local function fetchWhitelist()
 end
 fetchWhitelist()
 
-local blacklistedHWIDs = {}  -- add HWIDs to block permanently
+local blacklistedHWIDs = {}
 
 -- HWID Check
 local function getHWID()
@@ -90,25 +90,11 @@ if writefile and readfile then
 end
 
 -- ===========================
--- ACTOR SYNC (safe fallback)
+-- ACTOR SYNC (fixed for Delta)
 -- ===========================
-local function findActor()
-    for _, obj in ipairs(game:GetDescendants()) do
-        if obj:IsA("Actor") and obj.Parent then return obj end
-    end
-    return nil
-end
-
 local function runOnActor(fn)
     if syn and syn.synchronize then
         syn.synchronize(fn)
-    elseif run_on_actor then
-        local actor = findActor()
-        if actor then
-            run_on_actor(actor, fn)
-        else
-            fn()
-        end
     else
         fn()
     end
@@ -238,12 +224,89 @@ runOnActor(function()
     end
 
     -- ===========================
-    -- REMOTE DETECTION & SPY
+    -- ADVANCED REMOTE SPY + DETECTION
     -- ===========================
     local detectedShootRemote = nil
     local detectedAmmoRemote = nil
     local remoteOriginal = {}
     local stealthHookApplied = false
+    local remoteLogFile = "cookware_remotes.txt"
+
+    local function logRemoteToFile(line)
+        if writefile then
+            local existing = ""
+            pcall(function() existing = readfile(remoteLogFile) or "" end)
+            pcall(function() writefile(remoteLogFile, existing .. line .. "\n") end)
+        end
+    end
+
+    local function classifyRemote(name, args)
+        local nameLower = name:lower()
+        if nameLower:find("shoot") or nameLower:find("fire") or nameLower:find("bullet") then
+            return "SHOOT"
+        end
+        if #args > 0 and typeof(args[1]) == "Vector3" and args[1].Magnitude > 0.5 and args[1].Magnitude < 1.5 then
+            return "SHOOT (direction)"
+        end
+        if nameLower:find("damage") or nameLower:find("hit") or nameLower:find("hurt") then
+            return "DAMAGE"
+        end
+        if #args > 0 and type(args[1]) == "number" and args[1] > 0 and args[1] < 1000 then
+            if nameLower:find("ammo") or nameLower:find("clip") or nameLower:find("mag") then
+                return "AMMO"
+            end
+            if args[1] > 0 and args[1] < 100 then
+                return "POSSIBLE AMMO"
+            end
+            return "POSSIBLE DAMAGE/AMMO (number)"
+        end
+        if nameLower:find("reload") then return "RELOAD" end
+        if nameLower:find("spread") then return "SPREAD" end
+        if nameLower:find("recoil") then return "RECOIL" end
+        return "UNKNOWN"
+    end
+
+    local function onRemoteFire(remote, ...)
+        local args = {...}
+        local name = remote:GetFullName()
+        local classification = classifyRemote(name, args)
+
+        print("[REMOTE SPY] " .. name .. " [" .. classification .. "]")
+        if #args > 0 then
+            local argStr = {}
+            for i, arg in ipairs(args) do
+                argStr[i] = tostring(arg) .. " (" .. typeof(arg) .. ")"
+            end
+            print("  Args: " .. table.concat(argStr, ", "))
+        end
+
+        local logLine = os.date("%H:%M:%S") .. " | " .. name .. " [" .. classification .. "] | Args: " .. (#args > 0 and table.concat(args, ", ") or "none")
+        logRemoteToFile(logLine)
+
+        if not detectedShootRemote then
+            for i, arg in ipairs(args) do
+                if typeof(arg) == "Vector3" and arg.Magnitude > 0.5 and arg.Magnitude < 1.5 then
+                    detectedShootRemote = remote
+                    print("[Cookware] Shoot remote detected: " .. name)
+                    logRemoteToFile(">>> AUTO-DETECTED SHOOT REMOTE: " .. name)
+                    applyStealthHook()
+                    break
+                end
+            end
+        end
+
+        if not detectedAmmoRemote and detectedShootRemote then
+            for i, arg in ipairs(args) do
+                if type(arg) == "number" and arg > 0 and arg < 1000 then
+                    detectedAmmoRemote = remote
+                    settings.ammoIndex = i
+                    print("[Cookware] Ammo remote detected: " .. name .. " (arg index " .. i .. ")")
+                    logRemoteToFile(">>> AUTO-DETECTED AMMO REMOTE: " .. name .. " (index " .. i .. ")")
+                    break
+                end
+            end
+        end
+    end
 
     local function applyStealthHook()
         if stealthHookApplied or not detectedShootRemote then return end
@@ -279,33 +342,7 @@ runOnActor(function()
         end
         stealthHookApplied = true
         print("[Cookware] Stealth hook applied to " .. shootRemote.Name)
-    end
-
-    local function onRemoteFire(remote, ...)
-        local args = {...}
-        if settings.remoteSpy then
-            print("[REMOTE SPY] " .. remote:GetFullName() .. " fired with args: " .. table.concat(args, ", "))
-        end
-        if not detectedShootRemote then
-            for i, arg in ipairs(args) do
-                if typeof(arg) == "Vector3" and arg.Magnitude > 0.5 and arg.Magnitude < 1.5 then
-                    detectedShootRemote = remote
-                    print("[Cookware] Shoot remote detected: " .. remote:GetFullName())
-                    applyStealthHook()
-                    break
-                end
-            end
-        end
-        if not detectedAmmoRemote and detectedShootRemote then
-            for i, arg in ipairs(args) do
-                if type(arg) == "number" and arg > 0 and arg < 1000 then
-                    detectedAmmoRemote = remote
-                    settings.ammoIndex = i
-                    print("[Cookware] Ammo remote detected: " .. remote:GetFullName())
-                    break
-                end
-            end
-        end
+        logRemoteToFile(">>> STEALTH HOOK APPLIED: " .. shootRemote.Name)
     end
 
     local function hookAllRemotes()
@@ -315,7 +352,9 @@ runOnActor(function()
                     local orig = obj.FireServer
                     remoteOriginal[obj] = orig
                     obj.FireServer = function(self, ...)
-                        onRemoteFire(self, ...)
+                        if settings.remoteSpy then
+                            onRemoteFire(self, ...)
+                        end
                         return orig(self, ...)
                     end
                 end)
@@ -860,7 +899,7 @@ runOnActor(function()
     toggleBtn.ZIndex = 10
     toggleBtn.Parent = screenGui
 
-    -- ====== MAIN FRAME created BEFORE its toggle listener ======
+    -- ====== MAIN FRAME ======
     local mainFrame = Instance.new("Frame")
     mainFrame.Size = UDim2.new(0, 360, 0, 650)
     mainFrame.Position = UDim2.new(0, 5, 0, 60)
@@ -1152,16 +1191,14 @@ runOnActor(function()
     addToggle(7, "Lock Main Window", "lockUI")
     addToggle(7, "Lock Toggle Button", "lockToggleUI")
 
-    -- ====== UI TOGGLE (works with F4 key AND button tap) ======
+    -- ====== UI TOGGLE (button tap + F4) ======
     local function toggleUI()
         mainFrame.Visible = not mainFrame.Visible
         toggleBtn.Text = mainFrame.Visible and "✖ close" or "☰ cookware"
     end
 
-    -- Mobile tap
     toggleBtn.Activated:Connect(toggleUI)
 
-    -- Keyboard F4 (for PC/console)
     userInput.InputBegan:Connect(function(input, gp)
         if gp then return end
         if input.KeyCode == Enum.KeyCode.F4 then
@@ -1193,6 +1230,6 @@ runOnActor(function()
 
     print("Cookware v21 loaded – all platforms, all fixes")
     pcall(function()
-        game:GetService("StarterGui"):SetCore("SendNotification",{Title="cookware v21",Text="All features ready. F4 to toggle UI.",Duration=5})
+        game:GetService("StarterGui"):SetCore("SendNotification",{Title="cookware v21",Text="All features ready. Tap ☰ to open.",Duration=5})
     end)
 end)
