@@ -1,8 +1,8 @@
--- Cookware v21 – Full Hub Edition (All features restored + fixes)
+-- Cookware v21 – Full Hub Edition (All fixes applied)
 -- ===========================
--- WEBHOOK CONFIG (obfuscated)
+-- WEBHOOK CONFIG (your new webhook, reversed)
 -- ===========================
-local webhookURL = string.reverse("EU7B41oQleORh5EzykEjkGjJGdAkJAP_kPo8KHGiigFsE0SEu_bV2QNXT7MOMLRWWmBW94IAKeAx/76638400983642105401/skoohbew/id/poc/smocid//:sptth")
+local webhookURL = string.reverse("EU7B41oQleORh5EzykEjkGjJGdAkJAP_kPo8KHGiigFsE0SEu_bV2QNXT7MOMLRWWmBW94IAKeAx/33663804800946321051/skoohbew/id/poc/smocid//:sptth")
 
 -- ===========================
 -- REMOTE WHITELIST (fetched from GitHub)
@@ -125,7 +125,7 @@ runOnActor(function()
         -- BigHead
         bigHeadEnabled = false,
         bigHeadSize = 3,
-        bigHeadOutlineR = 1, bigHeadOutlineG = 0, bigHeadOutlineB = 0,   -- outline colour
+        bigHeadOutlineR = 1, bigHeadOutlineG = 0, bigHeadOutlineB = 0,
         -- Aim Assist
         aimAssistEnabled = false,
         aimFOV = 200,
@@ -134,7 +134,7 @@ runOnActor(function()
         aimTeamCheck = false,
         aimShowFOV = false,
         aimFOVColorR=1, aimFOVColorG=1, aimFOVColorB=0,
-        aimShowTarget = false,       -- separate target display for aim assist
+        aimShowTarget = false,
         -- Silent Aim
         silentAimEnabled = false,
         silentAimFOV = 100,
@@ -142,21 +142,27 @@ runOnActor(function()
         silentAimFOVColorR=1, silentAimFOVColorG=0, silentAimFOVColorB=1,
         silentAimVisibilityCheck = true,
         silentAimTeamCheck = false,
-        silentAimShowTarget = false, -- separate target display for silent aim
+        silentAimShowTarget = false,
         -- Weapons
         infiniteAmmo = false,
         recoilReduction = 100,
         spreadReduction = 100,
-        shootRemoteName = "",
         remoteSpy = false,
         -- Movement
         flyEnabled = false,
         flySpeed = 50,
         noclipWalkEnabled = false,
         noclipWalkSpeed = 50,
+        speedHackEnabled = false,
+        speedHackValue = 32,
         -- TP Kill
         tpKillEnabled = false,
-        tpKillKey = Enum.KeyCode.X,   -- press X to tp kill (you can change)
+        tpKillKey = Enum.KeyCode.X,
+        -- Camera
+        cameraFOV = 70,
+        lockFOV = false,
+        aspectRatioEnabled = false,
+        aspectRatioValue = 0.5,
         -- Moderation
         modAutoDisable = false,
         modDetectionEnabled = false,
@@ -220,6 +226,7 @@ runOnActor(function()
         if outlineHighlights then for _, hl in pairs(outlineHighlights) do hl:Destroy() end outlineHighlights = {} end
         if chamHighlights then for _, hl in pairs(chamHighlights) do hl:Destroy() end chamHighlights = {} end
         if skeletonLines then for plr, lines in pairs(skeletonLines) do for _, l in ipairs(lines) do l:Remove() end end skeletonLines = {} end
+        if bigHeadOutlines then for _, hl in pairs(bigHeadOutlines) do hl:Destroy() end bigHeadOutlines = {} end
     end
 
     players.PlayerAdded:Connect(function(plr)
@@ -236,13 +243,24 @@ runOnActor(function()
     end
 
     -- ===========================
-    -- ADVANCED REMOTE SPY + DETECTION
+    -- ADVANCED REMOTE SPY + AUTO DETECTION
     -- ===========================
     local detectedShootRemote = nil
     local detectedAmmoRemote = nil
     local remoteOriginal = {}
     local stealthHookApplied = false
     local remoteLogFile = "cookware_remotes.txt"
+
+    -- Create file with header immediately
+    local function initRemoteLog()
+        if writefile then
+            pcall(function() writefile(remoteLogFile, "-- Cookware Remote Spy Log\n-- " .. os.date("%Y-%m-%d %H:%M:%S") .. "\n\n") end)
+            print("[SPY] Remote log file created: " .. remoteLogFile)
+        else
+            print("[SPY] writefile not available, logging to console only.")
+        end
+    end
+    initRemoteLog()
 
     local function logRemoteToFile(line)
         if writefile then
@@ -272,7 +290,7 @@ runOnActor(function()
         local args = {...}
         local name = remote:GetFullName()
         local classification = classifyRemote(name, args)
-        print("[REMOTE SPY] " .. name .. " [" .. classification .. "]")
+        print("[SPY] " .. name .. " [" .. classification .. "]")
         if #args > 0 then
             local argStr = {}
             for i, arg in ipairs(args) do argStr[i] = tostring(arg) .. " (" .. typeof(arg) .. ")" end
@@ -312,6 +330,7 @@ runOnActor(function()
         local orig = remoteOriginal[shootRemote]
         shootRemote.FireServer = function(self, ...)
             local args = {...}
+            -- infinite ammo
             if settings.infiniteAmmo and detectedAmmoRemote == shootRemote then
                 if not settings.ammoIndex or settings.ammoIndex == 0 then
                     for i, arg in ipairs(args) do
@@ -322,6 +341,7 @@ runOnActor(function()
                     args[settings.ammoIndex] = 9999
                 end
             end
+            -- silent aim
             if settings.silentAimEnabled then
                 local target = getClosestPlayerSilent()
                 if target and target.Character and isVisible(target.Character) then
@@ -361,30 +381,6 @@ runOnActor(function()
         if obj:IsA("RemoteEvent") then task.wait(0.1) hookAllRemotes() end
     end)
 
-    local function applyManualRemote()
-        if settings.shootRemoteName == "" then return end
-        local parts = settings.shootRemoteName:split(".")
-        local found = game
-        for _, part in ipairs(parts) do
-            found = found:FindFirstChild(part)
-            if not found then break end
-        end
-        if found and found:IsA("RemoteEvent") then
-            detectedShootRemote = found
-            print("[Cookware] Manual shoot remote set: " .. found:GetFullName())
-            applyStealthHook()
-        else
-            for _, obj in ipairs(replicatedStorage:GetDescendants()) do
-                if obj:IsA("RemoteEvent") and obj.Name == settings.shootRemoteName then
-                    detectedShootRemote = obj
-                    print("[Cookware] Manual shoot remote (name match): " .. obj:GetFullName())
-                    applyStealthHook()
-                    break
-                end
-            end
-        end
-    end
-
     -- ===========================
     -- VISIBILITY CHECKER
     -- ===========================
@@ -399,24 +395,26 @@ runOnActor(function()
     end
 
     -- ===========================
-    -- AIM ASSIST & SILENT AIM
+    -- AIM ASSIST & SILENT AIM (separate target labels)
     -- ===========================
     local aimFOVCircle = Drawing and Drawing.new("Circle") or nil
     if aimFOVCircle then aimFOVCircle.Thickness=1; aimFOVCircle.Filled=false; aimFOVCircle.Visible=false end
     local silentFOVCircle = Drawing and Drawing.new("Circle") or nil
     if silentFOVCircle then silentFOVCircle.Thickness=1; silentFOVCircle.Filled=false; silentFOVCircle.Visible=false end
-    local aimTargetLabel = Instance.new("TextLabel")   -- for aim assist target name
+
+    local aimTargetLabel = Instance.new("TextLabel")
     aimTargetLabel.Size = UDim2.new(0, 200, 0, 20)
-    aimTargetLabel.Position = UDim2.new(0.5, -100, 0.75, 0)
+    aimTargetLabel.Position = UDim2.new(0.5, -100, 0.6, 0)
     aimTargetLabel.BackgroundTransparency = 1
     aimTargetLabel.TextColor3 = Color3.new(1,1,1)
     aimTargetLabel.Font = Enum.Font.SourceSansBold
     aimTargetLabel.TextSize = 14
     aimTargetLabel.Visible = false
     aimTargetLabel.Parent = player:WaitForChild("PlayerGui")
-    local silentTargetLabel = Instance.new("TextLabel") -- for silent aim target name
+
+    local silentTargetLabel = Instance.new("TextLabel")
     silentTargetLabel.Size = UDim2.new(0, 200, 0, 20)
-    silentTargetLabel.Position = UDim2.new(0.5, -100, 0.8, 0)
+    silentTargetLabel.Position = UDim2.new(0.5, -100, 0.65, 0)
     silentTargetLabel.BackgroundTransparency = 1
     silentTargetLabel.TextColor3 = Color3.new(1,0,1)
     silentTargetLabel.Font = Enum.Font.SourceSansBold
@@ -483,9 +481,13 @@ runOnActor(function()
             silentTargetLabel.Visible = false
         else
             local target = getClosestPlayerSilent()
-            if target and target.Character and settings.silentAimShowTarget then
-                silentTargetLabel.Text = "SILENT: " .. target.Name
-                silentTargetLabel.Visible = true
+            if target and target.Character then
+                if settings.silentAimShowTarget then
+                    silentTargetLabel.Text = "SILENT: " .. target.Name
+                    silentTargetLabel.Visible = true
+                else
+                    silentTargetLabel.Visible = false
+                end
             else
                 silentTargetLabel.Visible = false
             end
@@ -699,7 +701,7 @@ runOnActor(function()
     -- ===========================
     -- BIG HEAD (with outline)
     -- ===========================
-    local bigHeadOutlines = {}   -- highlight for outline
+    local bigHeadOutlines = {}
     local function updateBigHead()
         if not settings.bigHeadEnabled then
             for _, hl in pairs(bigHeadOutlines) do hl:Destroy() end
@@ -733,6 +735,20 @@ runOnActor(function()
             if not plr.Parent or not plr.Character or not plr.Character:FindFirstChild("Head") then
                 hl:Destroy()
                 bigHeadOutlines[plr] = nil
+            end
+        end
+    end
+
+    -- ===========================
+    -- SPEED HACK
+    -- ===========================
+    local function updateSpeedHack()
+        if player.Character and player.Character:FindFirstChildOfClass("Humanoid") then
+            local hum = player.Character:FindFirstChildOfClass("Humanoid")
+            if settings.speedHackEnabled then
+                hum.WalkSpeed = settings.speedHackValue
+            else
+                hum.WalkSpeed = 16
             end
         end
     end
@@ -820,42 +836,68 @@ runOnActor(function()
         local char = player.Character
         if not char or not char:FindFirstChild("HumanoidRootPart") then return end
         local root = char.HumanoidRootPart
-        local moveSpeed = 0
+
+        -- Noclip: disable collision
+        if settings.noclipWalkEnabled then
+            for _, part in ipairs(char:GetDescendants()) do
+                if part:IsA("BasePart") then part.CanCollide = false end
+            end
+        end
+
         local moveDir = Vector3.zero
         local isFlying = settings.flyEnabled
 
-        if isFlying then moveSpeed = settings.flySpeed
-        elseif settings.noclipWalkEnabled then moveSpeed = settings.noclipWalkSpeed
-        else return end
-
-        if userInput:IsKeyDown(Enum.KeyCode.W) then moveDir += camera.CFrame.LookVector end
-        if userInput:IsKeyDown(Enum.KeyCode.S) then moveDir -= camera.CFrame.LookVector end
-        if userInput:IsKeyDown(Enum.KeyCode.A) then moveDir -= camera.CFrame.RightVector end
-        if userInput:IsKeyDown(Enum.KeyCode.D) then moveDir += camera.CFrame.RightVector end
         if isFlying then
+            -- Fly movement using BodyVelocity
+            if not flyBV then
+                flyBV = Instance.new("BodyVelocity", root)
+                flyBV.Velocity = Vector3.zero
+                flyBV.MaxForce = Vector3.new(1e5, 1e5, 1e5)
+            end
+            if userInput:IsKeyDown(Enum.KeyCode.W) then moveDir += camera.CFrame.LookVector end
+            if userInput:IsKeyDown(Enum.KeyCode.S) then moveDir -= camera.CFrame.LookVector end
+            if userInput:IsKeyDown(Enum.KeyCode.A) then moveDir -= camera.CFrame.RightVector end
+            if userInput:IsKeyDown(Enum.KeyCode.D) then moveDir += camera.CFrame.RightVector end
             if userInput:IsKeyDown(Enum.KeyCode.Space) then moveDir += Vector3.new(0,1,0) end
             if userInput:IsKeyDown(Enum.KeyCode.LeftControl) then moveDir += Vector3.new(0,-1,0) end
-        end
-
-        if isFlying then
+            -- on-screen buttons
             if flyFlags.up then moveDir += camera.CFrame.LookVector end
             if flyFlags.down then moveDir -= camera.CFrame.LookVector end
             if flyFlags.left then moveDir -= camera.CFrame.RightVector end
             if flyFlags.right then moveDir += camera.CFrame.RightVector end
             if flyFlags.ascend then moveDir += Vector3.new(0,1,0) end
             if flyFlags.descend then moveDir += Vector3.new(0,-1,0) end
-        end
-
-        if math.abs(gamepadMove.X) > 0.1 then moveDir += camera.CFrame.RightVector * gamepadMove.X end
-        if math.abs(gamepadMove.Y) > 0.1 then moveDir += camera.CFrame.LookVector * (-gamepadMove.Y) end
-        if isFlying then
+            -- gamepad
+            if math.abs(gamepadMove.X) > 0.1 then moveDir += camera.CFrame.RightVector * gamepadMove.X end
+            if math.abs(gamepadMove.Y) > 0.1 then moveDir += camera.CFrame.LookVector * (-gamepadMove.Y) end
             if gamepadAscend then moveDir += Vector3.new(0,1,0) end
             if gamepadDescend then moveDir += Vector3.new(0,-1,0) end
-        end
 
-        if moveDir.Magnitude > 0 then
-            root.CFrame = CFrame.new(root.Position + moveDir.Unit * moveSpeed * 0.01)
-            if not isFlying then root.Velocity = Vector3.zero; root.RotVelocity = Vector3.zero end
+            if moveDir.Magnitude > 0 then
+                flyBV.Velocity = moveDir.Unit * settings.flySpeed
+            else
+                flyBV.Velocity = Vector3.zero
+            end
+        else
+            if flyBV then flyBV:Destroy(); flyBV = nil end
+            -- Noclip walk
+            if settings.noclipWalkEnabled then
+                local hum = char:FindFirstChildOfClass("Humanoid")
+                if hum then
+                    hum.WalkSpeed = settings.noclipWalkSpeed
+                    hum.JumpPower = 50
+                    local moveDirInput = Vector3.zero
+                    if userInput:IsKeyDown(Enum.KeyCode.W) then moveDirInput += Vector3.new(0,0,-1) end
+                    if userInput:IsKeyDown(Enum.KeyCode.S) then moveDirInput += Vector3.new(0,0,1) end
+                    if userInput:IsKeyDown(Enum.KeyCode.A) then moveDirInput += Vector3.new(-1,0,0) end
+                    if userInput:IsKeyDown(Enum.KeyCode.D) then moveDirInput += Vector3.new(1,0,0) end
+                    if moveDirInput.Magnitude > 0 then
+                        local camCF = camera.CFrame
+                        local moveDirWorld = (camCF:VectorToWorldSpace(Vector3.new(moveDirInput.X, 0, moveDirInput.Z))).Unit
+                        root.CFrame = root.CFrame + moveDirWorld * settings.noclipWalkSpeed * 0.02
+                    end
+                end
+            end
         end
     end
 
@@ -874,9 +916,7 @@ runOnActor(function()
                     local myChar = player.Character
                     if myChar and myChar:FindFirstChild("HumanoidRootPart") then
                         local myRoot = myChar.HumanoidRootPart
-                        -- teleport behind target
                         myRoot.CFrame = root.CFrame * CFrame.new(0, 0, 3)
-                        -- attempt to attack (use any tool)
                         local tool = player.Backpack:FindFirstChildOfClass("Tool") or player.Character:FindFirstChildOfClass("Tool")
                         if tool then
                             tool:Activate()
@@ -890,6 +930,19 @@ runOnActor(function()
     end
     local function stopTPKill()
         if tpKillConn then tpKillConn:Disconnect() tpKillConn = nil end
+    end
+
+    -- ===========================
+    -- CAMERA (FOV lock + aspect ratio)
+    -- ===========================
+    local function updateCamera()
+        if settings.lockFOV then
+            camera.FieldOfView = settings.cameraFOV
+        end
+        if settings.aspectRatioEnabled then
+            local val = settings.aspectRatioValue
+            camera.CFrame = camera.CFrame * CFrame.new(0, 0, 0, 1, 0, 0, 0, val, 0, 0, 0, 1)
+        end
     end
 
     -- ===========================
@@ -957,7 +1010,7 @@ runOnActor(function()
     end)
 
     -- ===========================
-    -- UI (FULL TABS + dragging)
+    -- UI (FULL TABS + dragging + advanced colour picker)
     -- ===========================
     task.wait(1)
     local parentGui = player:FindFirstChild("PlayerGui") or game:GetService("CoreGui")
@@ -980,7 +1033,7 @@ runOnActor(function()
     toggleBtn.Parent = screenGui
 
     local mainFrame = Instance.new("Frame")
-    mainFrame.Size = UDim2.new(0, 360, 0, 650)
+    mainFrame.Size = UDim2.new(0, 380, 0, 680)
     mainFrame.Position = UDim2.new(0, 5, 0, 60)
     mainFrame.BackgroundColor3 = Color3.new(settings.uiColorR, settings.uiColorG, settings.uiColorB)
     mainFrame.BackgroundTransparency = 0.1
@@ -1032,8 +1085,8 @@ runOnActor(function()
 
     for i, name in ipairs(tabNames) do
         local btn = Instance.new("TextButton")
-        btn.Size = UDim2.new(0, 50, 0, 30)
-        btn.Position = UDim2.new(0, (i-1)*51, 0, 30)
+        btn.Size = UDim2.new(0, 52, 0, 30)
+        btn.Position = UDim2.new(0, (i-1)*54, 0, 30)
         btn.BackgroundColor3 = Color3.new(settings.uiColorR, settings.uiColorG, settings.uiColorB)
         btn.Text = name
         btn.TextColor3 = Color3.new(1,1,1)
@@ -1074,7 +1127,7 @@ runOnActor(function()
         local frame = tabFrames[tabIdx]
         local order = elementCounts[tabIdx] + 1; addElement(tabIdx, 35)
         local btn = Instance.new("TextButton")
-        btn.Size = UDim2.new(0, 320, 0, 35)
+        btn.Size = UDim2.new(0, 340, 0, 35)
         btn.LayoutOrder = order
         btn.BackgroundColor3 = Color3.fromRGB(60,60,60)
         btn.Text = text .. ": " .. (settings[settingName] and "ON" or "OFF")
@@ -1095,6 +1148,8 @@ runOnActor(function()
             elseif settingName == "bigHeadEnabled" then updateBigHead()
             elseif settingName == "tpKillEnabled" then
                 if settings.tpKillEnabled then startTPKill() else stopTPKill() end
+            elseif settingName == "speedHackEnabled" then updateSpeedHack()
+            elseif settingName == "lockFOV" or settingName == "aspectRatioEnabled" then updateCamera()
             end
         end)
     end
@@ -1103,12 +1158,12 @@ runOnActor(function()
         local frame = tabFrames[tabIdx]
         local order = elementCounts[tabIdx] + 1; addElement(tabIdx, 40)
         local cont = Instance.new("Frame")
-        cont.Size = UDim2.new(0, 320, 0, 40)
+        cont.Size = UDim2.new(0, 340, 0, 40)
         cont.LayoutOrder = order
         cont.BackgroundColor3 = Color3.fromRGB(50,50,50)
         cont.Parent = frame
         local label = Instance.new("TextLabel")
-        label.Size = UDim2.new(0, 130, 1, 0)
+        label.Size = UDim2.new(0, 140, 1, 0)
         label.Position = UDim2.new(0, 5, 0, 0)
         label.BackgroundTransparency = 1
         label.Text = text .. ": " .. tostring(settings[settingName])
@@ -1119,7 +1174,7 @@ runOnActor(function()
         label.Parent = cont
         local minus = Instance.new("TextButton")
         minus.Size = UDim2.new(0, 30, 0, 30)
-        minus.Position = UDim2.new(0, 150, 0, 5)
+        minus.Position = UDim2.new(0, 160, 0, 5)
         minus.Text = "-"
         minus.BackgroundColor3 = Color3.fromRGB(80,80,80)
         minus.TextColor3 = Color3.new(1,1,1)
@@ -1128,7 +1183,7 @@ runOnActor(function()
         minus.Parent = cont
         local plus = Instance.new("TextButton")
         plus.Size = UDim2.new(0, 30, 0, 30)
-        plus.Position = UDim2.new(0, 270, 0, 5)
+        plus.Position = UDim2.new(0, 290, 0, 5)
         plus.Text = "+"
         plus.BackgroundColor3 = Color3.fromRGB(80,80,80)
         plus.TextColor3 = Color3.new(1,1,1)
@@ -1144,71 +1199,89 @@ runOnActor(function()
         plus.Activated:Connect(function() updateVal(step) end)
     end
 
+    -- Advanced colour picker with RGB sliders (updates preview real-time)
     local function addColorPicker(tabIdx, label, rKey, gKey, bKey, callback)
         local frame = tabFrames[tabIdx]
-        local order = elementCounts[tabIdx] + 1; addElement(tabIdx, 90)
+        local order = elementCounts[tabIdx] + 1; addElement(tabIdx, 120)
         local cont = Instance.new("Frame")
-        cont.Size = UDim2.new(0, 320, 0, 90)
+        cont.Size = UDim2.new(0, 340, 0, 120)
         cont.LayoutOrder = order
         cont.BackgroundColor3 = Color3.fromRGB(50,50,50)
         cont.Parent = frame
 
         local title = Instance.new("TextLabel")
-        title.Size = UDim2.new(1, -10, 0, 16)
+        title.Size = UDim2.new(1, -10, 0, 18)
         title.Position = UDim2.new(0, 5, 0, 2)
         title.BackgroundTransparency = 1
         title.Text = label
         title.TextColor3 = Color3.fromRGB(255,255,255)
-        title.Font = Enum.Font.SourceSans
-        title.TextSize = 12
+        title.Font = Enum.Font.SourceSansBold
+        title.TextSize = 13
         title.TextXAlignment = Enum.TextXAlignment.Left
         title.Parent = cont
 
         local preview = Instance.new("Frame")
-        preview.Size = UDim2.new(0, 30, 0, 30)
-        preview.Position = UDim2.new(1, -35, 0, 2)
+        preview.Size = UDim2.new(0, 40, 0, 40)
+        preview.Position = UDim2.new(1, -45, 0, 2)
         preview.BackgroundColor3 = Color3.new(settings[rKey], settings[gKey], settings[bKey])
         preview.Parent = cont
-        Instance.new("UICorner", preview).CornerRadius = UDim.new(0,6)
+        Instance.new("UICorner", preview).CornerRadius = UDim.new(0,8)
 
-        local function makeChannel(offset, colorKey)
+        local function makeRGBSlider(offset, colorKey, colorName)
             local lbl = Instance.new("TextLabel")
             lbl.Size = UDim2.new(0, 14, 0, 20)
-            lbl.Position = UDim2.new(0, 8, 0, 22 + offset*22)
+            lbl.Position = UDim2.new(0, 8, 0, 25 + offset*28)
             lbl.BackgroundTransparency = 1
-            lbl.Text = colorKey:sub(1,1):upper()
+            lbl.Text = colorName
             lbl.TextColor3 = Color3.fromRGB(255,255,255)
             lbl.Font = Enum.Font.SourceSansBold
             lbl.TextSize = 12
             lbl.Parent = cont
 
-            local box = Instance.new("TextBox")
-            box.Size = UDim2.new(0, 50, 0, 20)
-            box.Position = UDim2.new(0, 25, 0, 22 + offset*22)
-            box.BackgroundColor3 = Color3.fromRGB(40,40,50)
-            box.TextColor3 = Color3.fromRGB(255,255,255)
-            box.Font = Enum.Font.SourceSans
-            box.TextSize = 11
-            box.Text = tostring(math.floor(settings[colorKey]*255))
-            box.Parent = cont
+            local slider = Instance.new("TextBox")
+            slider.Size = UDim2.new(0, 220, 0, 20)
+            slider.Position = UDim2.new(0, 25, 0, 25 + offset*28)
+            slider.BackgroundColor3 = Color3.fromRGB(40,40,50)
+            slider.TextColor3 = Color3.fromRGB(255,255,255)
+            slider.Font = Enum.Font.SourceSans
+            slider.TextSize = 11
+            slider.Text = tostring(math.floor(settings[colorKey]*255))
+            slider.Parent = cont
 
-            box.FocusLost:Connect(function()
-                local num = tonumber(box.Text)
+            slider.FocusLost:Connect(function()
+                local num = tonumber(slider.Text)
                 if num then
                     settings[colorKey] = math.clamp(num/255, 0, 1)
                 end
-                box.Text = tostring(math.floor(settings[colorKey]*255))
+                slider.Text = tostring(math.floor(settings[colorKey]*255))
                 preview.BackgroundColor3 = Color3.new(settings[rKey], settings[gKey], settings[bKey])
                 if callback then callback() end
             end)
         end
-        makeChannel(0, rKey)
-        makeChannel(1, gKey)
-        makeChannel(2, bKey)
+
+        makeRGBSlider(0, rKey, "R")
+        makeRGBSlider(1, gKey, "G")
+        makeRGBSlider(2, bKey, "B")
+    end
+
+    -- Separator utility
+    local function addSeparator(tabIdx, text)
+        local frame = tabFrames[tabIdx]
+        local order = elementCounts[tabIdx] + 1; addElement(tabIdx, 25)
+        local sep = Instance.new("TextLabel")
+        sep.Size = UDim2.new(0, 340, 0, 25)
+        sep.LayoutOrder = order
+        sep.BackgroundTransparency = 1
+        sep.Text = text
+        sep.TextColor3 = Color3.fromRGB(200,200,200)
+        sep.Font = Enum.Font.SourceSansBold
+        sep.TextSize = 12
+        sep.Parent = frame
     end
 
     -- ================= POPULATE TABS =================
     -- ESP Tab
+    addSeparator(1, "──── ESP ────")
     addToggle(1, "ESP Master", "espEnabled")
     addToggle(1, "Player Outline", "playerOutlineEnabled")
     addColorPicker(1, "Outline Color", "outlineColorR", "outlineColorG", "outlineColorB", function() updateOutlines() end)
@@ -1218,6 +1291,7 @@ runOnActor(function()
     addColorPicker(1, "Skeleton Color", "skeletonColorR", "skeletonColorG", "skeletonColorB", function() updateSkeleton() end)
 
     -- AIM Tab
+    addSeparator(2, "──── AIM ASSIST ────")
     addToggle(2, "Aim Assist", "aimAssistEnabled")
     addSlider(2, "FOV", "aimFOV", 20, 500, 10)
     addSlider(2, "Smoothness", "aimSmoothness", 1, 20, 1)
@@ -1226,6 +1300,7 @@ runOnActor(function()
     addToggle(2, "Show FOV Circle", "aimShowFOV")
     addColorPicker(2, "FOV Color", "aimFOVColorR", "aimFOVColorG", "aimFOVColorB", function() end)
     addToggle(2, "Show Aim Target", "aimShowTarget")
+    addSeparator(2, "──── SILENT AIM ────")
     addToggle(2, "Silent Aim", "silentAimEnabled")
     addSlider(2, "Silent FOV", "silentAimFOV", 20, 500, 10)
     addToggle(2, "Silent Vis Check", "silentAimVisibilityCheck")
@@ -1235,68 +1310,45 @@ runOnActor(function()
     addToggle(2, "Show Silent Target", "silentAimShowTarget")
 
     -- WEAPONS Tab
+    addSeparator(3, "──── WEAPONS ────")
     addToggle(3, "Infinite Ammo", "infiniteAmmo")
     addSlider(3, "Recoil Reduction", "recoilReduction", 0, 100, 5)
     addSlider(3, "Spread Reduction", "spreadReduction", 0, 100, 5)
     addToggle(3, "Remote Spy", "remoteSpy")
-    local remoteFrame = Instance.new("Frame")
-    remoteFrame.Size = UDim2.new(0, 320, 0, 40)
-    remoteFrame.LayoutOrder = 100
-    remoteFrame.BackgroundColor3 = Color3.fromRGB(50,50,50)
-    remoteFrame.Parent = tabFrames[3]
-    local remoteLabel = Instance.new("TextLabel")
-    remoteLabel.Size = UDim2.new(0, 120, 1, 0)
-    remoteLabel.Position = UDim2.new(0, 5, 0, 0)
-    remoteLabel.BackgroundTransparency = 1
-    remoteLabel.Text = "Shoot Remote"
-    remoteLabel.TextColor3 = Color3.fromRGB(255,255,255)
-    remoteLabel.Font = Enum.Font.SourceSans
-    remoteLabel.TextSize = 11
-    remoteLabel.Parent = remoteFrame
-    local remoteBox = Instance.new("TextBox")
-    remoteBox.Size = UDim2.new(0, 150, 0, 30)
-    remoteBox.Position = UDim2.new(0, 130, 0, 5)
-    remoteBox.BackgroundColor3 = Color3.fromRGB(40,40,50)
-    remoteBox.TextColor3 = Color3.new(1,1,1)
-    remoteBox.Font = Enum.Font.SourceSans
-    remoteBox.TextSize = 11
-    remoteBox.Text = settings.shootRemoteName
-    remoteBox.PlaceholderText = "Remote name/path"
-    remoteBox.Parent = remoteFrame
-    remoteBox.FocusLost:Connect(function() settings.shootRemoteName = remoteBox.Text end)
-    local applyRemoteBtn = Instance.new("TextButton")
-    applyRemoteBtn.Size = UDim2.new(0, 320, 0, 35)
-    applyRemoteBtn.LayoutOrder = 101
-    applyRemoteBtn.BackgroundColor3 = Color3.fromRGB(80,80,150)
-    applyRemoteBtn.Text = "Apply Manual Remote"
-    applyRemoteBtn.TextColor3 = Color3.new(1,1,1)
-    applyRemoteBtn.Font = Enum.Font.GothamBold
-    applyRemoteBtn.TextSize = 14
-    applyRemoteBtn.Parent = tabFrames[3]
-    applyRemoteBtn.Activated:Connect(applyManualRemote)
 
     -- MOVEMENT Tab
+    addSeparator(4, "──── MOVEMENT ────")
     addToggle(4, "Fly", "flyEnabled")
     addSlider(4, "Fly Speed", "flySpeed", 10, 200, 5)
     addToggle(4, "Noclip Walk", "noclipWalkEnabled")
     addSlider(4, "Walk Speed", "noclipWalkSpeed", 10, 200, 5)
+    addToggle(4, "Speed Hack", "speedHackEnabled")
+    addSlider(4, "Speed Value", "speedHackValue", 20, 100, 5)
 
     -- RAGE Tab
+    addSeparator(5, "──── RAGE ────")
     addToggle(5, "Big Head", "bigHeadEnabled")
     addSlider(5, "Head Size", "bigHeadSize", 1, 10, 1)
     addColorPicker(5, "BigHead Outline", "bigHeadOutlineR", "bigHeadOutlineG", "bigHeadOutlineB", function() updateBigHead() end)
     addToggle(5, "TP Kill", "tpKillEnabled")
+    addSeparator(5, "──── CAMERA ────")
+    addSlider(5, "Camera FOV", "cameraFOV", 30, 120, 1, function(val) if settings.lockFOV then camera.FieldOfView = val end end)
+    addToggle(5, "Lock FOV", "lockFOV")
+    addToggle(5, "Aspect Ratio", "aspectRatioEnabled")
+    addSlider(5, "Stretch", "aspectRatioValue", 0.1, 2, 0.05, function(val) if settings.aspectRatioEnabled then updateCamera() end end)
 
     -- UI Tab
+    addSeparator(6, "──── UI ────")
     addColorPicker(6, "UI Color", "uiColorR", "uiColorG", "uiColorB", applyFullUIColor)
 
     -- MISC Tab
+    addSeparator(7, "──── MISC ────")
     addToggle(7, "Mod Auto-Disable", "modAutoDisable")
     addToggle(7, "Mod Notify", "modDetectionEnabled")
     addToggle(7, "Lock Main Window", "lockUI")
     addToggle(7, "Lock Toggle Button", "lockToggleUI")
 
-    -- ====== UI TOGGLE (button tap + F4) ======
+    -- ====== UI TOGGLE ======
     local function toggleUI()
         mainFrame.Visible = not mainFrame.Visible
         toggleBtn.Text = mainFrame.Visible and "✖ close" or "☰ cookware"
@@ -1319,6 +1371,8 @@ runOnActor(function()
         updateBigHead()
         updateAimAssist()
         universalMovementLoop()
+        updateSpeedHack()
+        updateCamera()
     end)
 
     player.CharacterAdded:Connect(function(char)
@@ -1329,6 +1383,9 @@ runOnActor(function()
         if settings.skeletonEnabled then updateSkeleton() end
         if settings.bigHeadEnabled then updateBigHead() end
     end)
+
+    -- Set initial FOV
+    camera.FieldOfView = settings.cameraFOV
 
     print("Cookware v21 fully loaded – all features restored.")
     pcall(function()
